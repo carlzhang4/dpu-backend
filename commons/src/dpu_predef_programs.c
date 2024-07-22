@@ -49,7 +49,15 @@ fetch_program(const char *name, iram_size_t *size)
     LOG_FN(DEBUG, "%s", name);
 
     char buffer[PATH_MAX];
-    const char *dir = fetch_package_library_directory();
+    char *dir;
+	char* env_path = getenv("UPMEM_RUNTIME_PACKAGE_LIBRARY_DIRECTORY");//Should be /usr/local/share
+	
+	if (env_path != NULL){
+		dir = strdup(env_path);
+	}else{
+		dir = fetch_package_library_directory();
+	}
+	
     if (dir == NULL) {
         LOG_FN(WARNING, "ERROR: cannot locate shared library");
         return NULL;

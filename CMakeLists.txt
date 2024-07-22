@@ -109,6 +109,8 @@ add_subdirectory(host-lldb-attach-dpu)
 add_subdirectory(python)
 add_subdirectory(vpd)
 
+add_subdirectory(example)
+
 add_optional_subdirectory(fsim)
 add_optional_subdirectory(casim)
 add_optional_subdirectory(modelsim)
