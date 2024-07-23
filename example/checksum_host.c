@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #ifndef DPU_BINARY
-#define DPU_BINARY "./example/checksum"
+#define DPU_BINARY "./build/example/checksum"
 #endif
 
 /* Size of the buffer for which we compute the checksum: 64KBytes. */

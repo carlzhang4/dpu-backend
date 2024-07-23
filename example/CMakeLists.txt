@@ -62,9 +62,14 @@ set(SOURCES
 
 set(ALL_SOURCES ${SOURCES} ${COMMONS_SOURCES})
 
+if(ENABLE_DEBUG)
+	message(STATUS "Add -g for /example")
+	add_definitions("-g")
+endif()
+
 add_executable(checksum_host ./checksum_host.c ${ALL_SOURCES} )
 target_include_directories( checksum_host PUBLIC ${INCLUDE_DIRECTORIES} )
-target_link_libraries( checksum_host m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_link_libraries( checksum_host dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
 target_compile_definitions(checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(checksum_host gen_files)

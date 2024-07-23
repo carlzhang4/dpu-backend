@@ -35,6 +35,7 @@
 #include "hw_dpu_sysfs.h"
 #include "dpu_rank_ioctl.h"
 #include "dpu_fpga_ila.h"
+#include "hw_dpu_rank.h"
 
 #include "dpu_module_compatibility.h"
 

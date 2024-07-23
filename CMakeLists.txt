@@ -4,6 +4,8 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+option(ENABLE_DEBUG "Enable debug symbols" ON)
+
 enable_testing()
 
 if (NOT DEFINED UPMEM_VERSION)

@@ -65,6 +65,11 @@ endif ()
 find_package(LibUdev REQUIRED)
 find_package(LibNuma REQUIRED)
 
+if(ENABLE_DEBUG)
+	message(STATUS "Add -g for /libdpuhw")
+	add_definitions("-g")
+endif()
+
 add_library( dpuhw SHARED ${HW_SOURCES} )
 target_include_directories( dpuhw PUBLIC ${INCLUDE_DIRECTORIES} ${HW_DIR} ${LIBUDEV_INCLUDE_DIR} ${LIBNUMA_INCLUDE_DIR} ${GEN_INCLUDE_DIRECTORY})
 target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} )

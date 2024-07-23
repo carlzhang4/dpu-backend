@@ -79,7 +79,7 @@ set(JNI_SOURCES
 
 add_library( dpu SHARED ${ALL_SOURCES} )
 target_include_directories( dpu PUBLIC ${INCLUDE_DIRECTORIES} )
-target_link_libraries( dpu m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_link_libraries( dpu dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
 target_compile_definitions(dpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(dpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(dpu gen_files)

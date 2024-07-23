@@ -28,6 +28,7 @@
 
 #include <dpu_rank.h>
 #include <dpu_rank_handler.h>
+#include "../../hw/src/rank/hw_dpu_rank.h"
 
 static bool
 initialize_static_interface_for_target(dpu_type_t target_type, bool verbose);
@@ -453,7 +454,8 @@ find_library_symbol(dpu_type_t target_type, const char *symbol_name, void **symb
     char *dl_error;
 
     BUILD_SYMBOL_NAME_IN(string, target_type, symbol_name);
-    *symbol_handle = dlsym(handler_context[target_type].library, string);
+	*symbol_handle = (void*)(&hw_dpu_rank_handler);
+    // *symbol_handle = dlsym(handler_context[target_type].library, string);
     if ((dl_error = dlerror()) != NULL) {
         if (verbose) {
             fprintf(stderr, "cannot find symbol %s: %s\n", string, dl_error);
