@@ -31,11 +31,18 @@ set( INCLUDE_DIRECTORIES
         ../verbose/src
         src/commons
         src
+		../bfdma
         )
 
 set( COMMONS_SOURCES
         ../commons/src/properties/dpu_properties.c
         ../commons/src/dpu_chip_description.c
+		../bfdma/dma_export.cpp
+		../bfdma/libr.cpp
+		../bfdma/util.cpp
+		../bfdma/devx_mr.cpp
+		../bfdma/connection_manager.cpp
+		../bfdma/devx_device.cpp
         )
 
 set ( MDD_COMMONS_SOURCES
@@ -72,7 +79,7 @@ endif()
 
 add_library( dpuhw SHARED ${HW_SOURCES} )
 target_include_directories( dpuhw PUBLIC ${INCLUDE_DIRECTORIES} ${HW_DIR} ${LIBUDEV_INCLUDE_DIR} ${LIBNUMA_INCLUDE_DIR} ${GEN_INCLUDE_DIRECTORY})
-target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} )
+target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} ibverbs mlx5)
 set_target_properties(dpuhw PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(dpuhw gen_files)
 
