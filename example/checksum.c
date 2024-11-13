@@ -2,8 +2,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CACHE_SIZE 256
-#define BUFFER_SIZE (1 << 16)
+#define CACHE_SIZE 16
+#define BUFFER_SIZE (1 << 6)
 
 __mram_noinit uint8_t buffer[BUFFER_SIZE];
 __host uint32_t checksum;

@@ -32,6 +32,7 @@ set( INCLUDE_DIRECTORIES
         src/commons
         src
 		../bfdma
+		../util
         )
 
 set( COMMONS_SOURCES
@@ -43,6 +44,7 @@ set( COMMONS_SOURCES
 		../bfdma/devx_mr.cpp
 		../bfdma/connection_manager.cpp
 		../bfdma/devx_device.cpp
+		../util/util.c
         )
 
 set ( MDD_COMMONS_SOURCES
