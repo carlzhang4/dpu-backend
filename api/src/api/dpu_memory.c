@@ -18,6 +18,12 @@
 #include <dpu_thread_job.h>
 #include <pthread.h>
 
+
+#include <stdint.h>
+#include <sys/time.h>
+#define T int32_t   //! PIDCOMM
+
+
 #define IRAM_MASK (0x80000000u)
 #define MRAM_MASK (0x08000000u)
 
@@ -808,4 +814,109 @@ dpu_push_xfer_symbol(struct dpu_set_t dpu_set,
     }
 
     return status;
+}
+
+
+//! PIDCOMM
+
+/*PID-Comm*/
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE
+#define DPU_BINARY_RELOCATE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_clockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_clockwise_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_clockwise_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_reverse_clockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE "../pidcomm_lib/bin/data_relocate_counterclockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_counterclockwise_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_counterclockwise_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE "../pidcomm_lib/bin/data_relocate_modified_clockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_modified_clockwise_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_modified_clockwise_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT "../pidcomm_lib/bin/data_relocate_clockwise_short"
+#endif
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT8
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT8 "../pidcomm_lib/bin/data_relocate_clockwise_short_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT32
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT32 "../pidcomm_lib/bin/data_relocate_clockwise_short_int32"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT8
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#endif
+#ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT32
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#endif
+
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short"
+#endif
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT8
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT8 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short_int8"
+#endif
+#ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT32
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT32 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short_int32"
+#endif
+
+
+
+
+typedef struct {
+    struct dpu_set_t dpu_set;
+    uint32_t dimension;
+    uint32_t* axis_len;
+} hypercube_manager;
+
+
+__API_SYMBOL__
+hypercube_manager* init_hypercube_manager(struct dpu_set_t dpu_set, uint32_t dimension, uint32_t* axis_len){
+    hypercube_manager* manager = malloc(sizeof(hypercube_manager));
+
+    manager->dpu_set = dpu_set;
+    manager->dimension = dimension;
+    manager->axis_len = axis_len;
+
+    return manager;
 }

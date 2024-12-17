@@ -688,4 +688,15 @@ dpu_callback(struct dpu_set_t dpu_set,
 dpu_error_t
 dpu_log_read(struct dpu_set_t set, FILE *stream);
 
+
+//! PIDCOMM
+dpu_error_t
+dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set, int type);
+
+//! PIDCOMM
+dpu_error_t
+dpu_alloc_custom(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set, int* enabled_dpus);
+
+
+
 #endif // DPU_H

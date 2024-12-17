@@ -74,6 +74,13 @@ target_compile_definitions(checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(checksum_host gen_files)
 
+add_executable(test_host ./test.c ${ALL_SOURCES} )
+target_include_directories( test_host PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries( test_host dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(test_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(test_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(test_host gen_files)
+
 
 #Device target
 set(INPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
