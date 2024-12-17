@@ -8,6 +8,7 @@
 #define DPU_BINARY "./build/example/checksum"
 #endif
 
+//test
 /* Size of the buffer for which we compute the checksum: 64KBytes. */
 #define BUFFER_SIZE (1 << 6)
 
