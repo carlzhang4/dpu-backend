@@ -1,4 +1,5 @@
-#include "util.h"
+#include "utils.h"
+#include <string>
 
 char* bytes2string(void* addr, int bytes){
 	char *res = (char *)malloc(sizeof(char) * (bytes*4 + 1));
