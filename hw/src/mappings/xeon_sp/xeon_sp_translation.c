@@ -1024,6 +1024,7 @@ unlock_and_exit:
 }
 
 struct dpu_region_address_translation xeon_sp_translate = {
+    .trans_all_to_all_rg = xeon_sp_trans_all_to_all_rg,
     .backend_id = DPU_BACKEND_XEON_SP,
     .capabilities = CAP_PERF | CAP_SAFE,
     .init_rank = xeon_sp_init_rank,

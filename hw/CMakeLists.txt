@@ -8,6 +8,7 @@ cmake_policy(SET CMP0048 NEW)
 
 find_package(SSE)
 
+
 if(C_SSE2_COMPILES)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SSE2")
 endif()
@@ -19,6 +20,8 @@ else()
         message(FATAL_ERROR "The host toolchain does not support avx512f/avx512bw or clflushopt: x86 mappings can't work without those extensions.")
     endif()
 endif()
+
+
 
 set( INCLUDE_DIRECTORIES
         ../api/include/lowlevel
@@ -69,6 +72,7 @@ endif ()
 
 if ( ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" )
 list ( APPEND HW_SOURCES src/mappings/xeon_sp/xeon_sp_translation.c )
+list ( APPEND HW_SOURCES src/mappings/xeon_sp/pid_comm.c )
 endif ()
 
 find_package(LibUdev REQUIRED)
@@ -80,8 +84,8 @@ if(ENABLE_DEBUG)
 endif()
 
 add_library( dpuhw SHARED ${HW_SOURCES} )
-target_include_directories( dpuhw PUBLIC ${INCLUDE_DIRECTORIES} ${HW_DIR} ${LIBUDEV_INCLUDE_DIR} ${LIBNUMA_INCLUDE_DIR} ${GEN_INCLUDE_DIRECTORY})
-target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} ibverbs mlx5)
+target_include_directories( dpuhw PUBLIC ${INCLUDE_DIRECTORIES} ${HW_DIR} ${LIBUDEV_INCLUDE_DIR} ${LIBNUMA_INCLUDE_DIR} ${GEN_INCLUDE_DIRECTORY}  )
+target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} ibverbs mlx5  )
 set_target_properties(dpuhw PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(dpuhw gen_files)
 

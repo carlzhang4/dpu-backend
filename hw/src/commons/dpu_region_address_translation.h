@@ -142,9 +142,28 @@ struct dpu_region_address_translation {
         uint8_t channel_id,
         void *block_data,
         uint32_t block_size);
+
+
+    void (*trans_all_to_all_rg)(
+        void *base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_thread,
+        uint32_t thread_id
+    );
+
 #ifdef __KERNEL__
     int (*mmap_hybrid)(struct dpu_region_address_translation *tr, struct file *filp, struct vm_area_struct *vma);
 #endif
 };
+
+
+void xeon_sp_trans_all_to_all_rg(void *base_region_addr_src, void *base_region_addr_dst, uint32_t src_rg_id, uint32_t dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t num_thread, uint32_t thread_id);
 
 #endif /* DPU_REGION_ADDRESS_TRANSLATION_INCLUDE_H */

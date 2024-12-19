@@ -41,6 +41,7 @@
 
 #include "static_verbose.h"
 #include <assert.h>
+#include <pthread.h>
 
 const char *
 get_rank_path(dpu_description_t description);
@@ -99,7 +100,13 @@ hw_custom_operation(struct dpu_rank_t *rank,
 static dpu_rank_status_e
 hw_get_nr_dpu_ranks(uint32_t *nr_ranks);
 
+
+static dpu_rank_status_e
+hw_all_to_all_rns(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t dpu_byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis);
+
+
 __API_SYMBOL__ struct dpu_rank_handler hw_dpu_rank_handler = {
+    .all_to_all_rns = hw_all_to_all_rns,      //! PIDCOMM
     .allocate = hw_allocate,
     .free = hw_free,
     .commit_commands = hw_commit_commands,
@@ -1032,5 +1039,179 @@ static dpu_rank_status_e
 hw_get_nr_dpu_ranks(uint32_t *nr_ranks)
 {
     *nr_ranks = dpu_sysfs_get_nb_physical_ranks();
+    return DPU_RANK_SUCCESS;
+}
+
+
+//! PIDCOMM
+typedef struct {
+    uint32_t p_thread_id;
+    struct dpu_set_t *p_comm_dpu_set;
+    uint32_t p_src_start_offset;
+    uint32_t p_dst_start_offset;
+    uint32_t p_dpu_byte_length;
+    uint32_t p_total_length;
+    uint32_t p_comm_type;
+    uint32_t p_row_length;
+    uint32_t p_communication_buffer_offset;
+    uint32_t size;
+    uint32_t thread_num;
+    uint32_t reduce_type;
+    void** p_host_buffer;
+    uint32_t p_target_dpu_index;
+    uint32_t p_num_thread;
+
+    uint32_t dimension;
+    uint32_t* axis_len;
+    uint32_t* comm_axis;
+
+}st_thread_parameter;
+
+void *thread_all_to_all_rns(void *thread_parameter){
+    st_thread_parameter *each_thread_comm_parameter = (st_thread_parameter *)thread_parameter;
+    uint32_t thread_id = each_thread_comm_parameter->p_thread_id;
+    struct dpu_set_t *comm_dpu_set=each_thread_comm_parameter->p_comm_dpu_set;
+    uint32_t src_start_offset=each_thread_comm_parameter->p_src_start_offset;
+    uint32_t dst_start_offset=each_thread_comm_parameter->p_dst_start_offset;
+    uint32_t dpu_byte_length=each_thread_comm_parameter->p_dpu_byte_length;
+    uint32_t comm_type=each_thread_comm_parameter->p_comm_type;
+    uint32_t communication_buffer_offset=each_thread_comm_parameter->p_communication_buffer_offset;
+    uint32_t num_thread=each_thread_comm_parameter->p_num_thread;
+
+    uint32_t dimension = each_thread_comm_parameter->dimension;
+    uint32_t* axis_len = each_thread_comm_parameter->axis_len;
+    uint32_t* comm_axis = each_thread_comm_parameter->comm_axis;
+
+    uint32_t num_inter_thread = 1;
+
+    uint32_t total_iter_num=1;
+    uint32_t total_axis_product=1;
+
+    for(uint32_t i=0; i<dimension; i++){
+        total_iter_num *= axis_len[i];
+        if(comm_axis[i] == 1) {
+            total_axis_product *= axis_len[i];
+        }
+    }
+    if(comm_type == 0) total_axis_product /= 8;   
+
+    total_iter_num /=8;
+    total_iter_num *= total_axis_product;
+
+    uint32_t share=total_iter_num/(num_thread/num_inter_thread);
+    uint32_t remainder=total_iter_num%(num_thread/num_inter_thread);
+    uint32_t remain_iter=0;
+    uint32_t start_point = share*(thread_id/num_inter_thread);
+    uint32_t src_start_offset_iter, dst_start_offset_iter;
+
+    if((thread_id/num_inter_thread)<remainder){
+        remain_iter=1;
+        start_point+=(thread_id/num_inter_thread);
+    }
+    else{
+        start_point+=remainder;
+    }
+
+    uint32_t* iter_src = calloc(dimension, sizeof(uint32_t));
+    uint32_t* iter_dst = calloc(dimension, sizeof(uint32_t));
+    uint32_t cur_iter_num, cur_remain, cur_iter_src, cur_iter_dst;
+    //! start_point unused
+    for(uint32_t i=start_point; i<(start_point+(share+remain_iter)); i++){
+
+        cur_iter_num = total_iter_num;
+        cur_remain = i;
+        for(int dim = (int)dimension-1; dim>=0; dim--){
+            if(comm_axis[dim] == 0){
+                if(dim == 0) cur_iter_num /= (axis_len[0]/8);
+                else cur_iter_num/=axis_len[dim];
+                iter_src[dim] = cur_remain / cur_iter_num;
+                iter_dst[dim] = cur_remain / cur_iter_num;
+                cur_remain -= iter_src[dim] * cur_iter_num;
+            }
+        }
+
+        cur_iter_src = cur_remain / total_axis_product;
+        cur_iter_dst = cur_remain % total_axis_product;
+
+        if(!comm_type){
+            src_start_offset_iter = src_start_offset + cur_iter_dst * 8 * dpu_byte_length;
+            dst_start_offset_iter = dst_start_offset + cur_iter_src * 8 * dpu_byte_length;
+        }
+        else{
+            src_start_offset_iter = src_start_offset + cur_iter_dst * 1 * dpu_byte_length;
+            dst_start_offset_iter = dst_start_offset + cur_iter_src * 1 * dpu_byte_length;
+        }
+
+        for(uint32_t dim = 0; dim<dimension; dim++){
+            if(comm_axis[dim] == 1){
+                if(dim==0){
+                    iter_src[dim] = cur_iter_src % (axis_len[dim]/8);
+                    iter_dst[dim] = cur_iter_dst % (axis_len[dim]/8);
+                    cur_iter_src = cur_iter_src / (axis_len[dim]/8);
+                    cur_iter_dst = cur_iter_dst / (axis_len[dim]/8);
+                }
+                else{
+                    iter_src[dim] = cur_iter_src % axis_len[dim];
+                    iter_dst[dim] = cur_iter_dst % axis_len[dim];
+                    cur_iter_src = cur_iter_src / axis_len[dim];
+                    cur_iter_dst = cur_iter_dst / axis_len[dim];
+                }
+            }
+        }
+
+        uint32_t src_rank_id=0; 
+        uint32_t dst_rank_id=0; 
+        uint32_t src_rg_id=0;
+        uint32_t dst_rg_id=0;
+        uint32_t temp_total_product=1;
+        for(uint32_t dim=0; dim < dimension; dim++){
+            if(dim == 1) temp_total_product *= (axis_len[0]/8);
+            else if(dim>1) temp_total_product *= axis_len[dim-1];
+            src_rank_id += iter_src[dim]*temp_total_product/8;
+            dst_rank_id += iter_dst[dim]*temp_total_product/8;
+            src_rg_id += iter_src[dim]*temp_total_product;
+            dst_rg_id += iter_dst[dim]*temp_total_product;
+        }
+        src_rg_id = src_rg_id % 8;
+        dst_rg_id = dst_rg_id % 8;
+
+        hw_dpu_rank_allocation_parameters_t params_src = _this_params(comm_dpu_set->list.ranks[src_rank_id] ->description);
+        uint8_t *rank_base_address_src=params_src->ptr_region;
+        hw_dpu_rank_allocation_parameters_t params_dst = _this_params(comm_dpu_set->list.ranks[dst_rank_id] ->description);
+        uint8_t *rank_base_address_dst=params_dst->ptr_region;
+        //printf("thread_id: %d, src_rank_id: %d, dst_rank_id: %d, src_rg_id: %d, dst_rg_id: %d, src_start_offset_iter: %d, dst_start_offset_iter: %d, dpu_byte_length: %d, comm_type: %d, communication_buffer_offset: %d, num_inter_thread: %d\n", thread_id, src_rank_id, dst_rank_id, src_rg_id, dst_rg_id, src_start_offset_iter, dst_start_offset_iter, dpu_byte_length, comm_type, communication_buffer_offset, num_inter_thread);
+        params_src->translate.trans_all_to_all_rg(rank_base_address_src, rank_base_address_dst, src_rg_id, dst_rg_id, src_start_offset_iter, dst_start_offset_iter, dpu_byte_length, comm_type, communication_buffer_offset, num_inter_thread, thread_id%num_inter_thread);
+        
+    }
+    return 0;
+}
+
+static dpu_rank_status_e
+hw_all_to_all_rns(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t dpu_byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis){
+    
+    uint32_t thread_num=32;
+    st_thread_parameter thread_params[thread_num];
+    int status;
+    pthread_t array_thread[thread_num];
+    for(uint32_t iter_thread=0; iter_thread<thread_num; iter_thread++){
+        thread_params[iter_thread].p_thread_id=iter_thread;
+        thread_params[iter_thread].p_comm_dpu_set=comm_dpu_set;
+        thread_params[iter_thread].p_src_start_offset=src_start_offset;
+        thread_params[iter_thread].p_dst_start_offset=dst_start_offset;
+        thread_params[iter_thread].p_dpu_byte_length=dpu_byte_length;
+        thread_params[iter_thread].p_comm_type = comm_type;
+        thread_params[iter_thread].p_communication_buffer_offset=communication_buffer_offset;
+        thread_params[iter_thread].p_num_thread=thread_num;
+        thread_params[iter_thread].dimension=dimension;
+        thread_params[iter_thread].axis_len=axis_len;
+        thread_params[iter_thread].comm_axis=comm_axis;
+        
+        if(axis_len[0] >=8) pthread_create(&array_thread[iter_thread], NULL, thread_all_to_all_rns, (void *) &thread_params[iter_thread]);
+        // else if(axis_len[0]*axis_len[1] >= 8) pthread_create(&array_thread[iter_thread], NULL, thread_all_to_all_24_rns, (void *) &thread_params[iter_thread]);
+        // else pthread_create(&array_thread[iter_thread], NULL, thread_all_to_all_22_rns, (void *) &thread_params[iter_thread]);
+    }
+    for(uint32_t iter_thread=0; iter_thread<thread_num; iter_thread++){
+        pthread_join(array_thread[iter_thread], (void **)&status);
+    }
     return DPU_RANK_SUCCESS;
 }

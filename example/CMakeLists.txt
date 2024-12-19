@@ -67,6 +67,8 @@ if(ENABLE_DEBUG)
 	add_definitions("-g")
 endif()
 
+add_definitions("-D UINT32")
+
 add_executable(checksum_host ./checksum_host.c ${ALL_SOURCES} )
 target_include_directories( checksum_host PUBLIC ${INCLUDE_DIRECTORIES} )
 target_link_libraries( checksum_host dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
@@ -93,8 +95,19 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_FILE}"
 )
 
+set(INPUT_FILE2 "${CMAKE_CURRENT_SOURCE_DIR}/dpu_user.c")
+set(OUTPUT_FILE2 "dpu_user")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_FILE2}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 ${INPUT_FILE2} -o ${OUTPUT_FILE2}
+  DEPENDS ${INPUT_FILE2}
+  COMMENT "Generating ${OUTPUT_FILE2}"
+)
+
 add_custom_target(
   generate_output
   ALL
   DEPENDS ${OUTPUT_FILE}
+  DEPENDS ${OUTPUT_FILE2}
 )

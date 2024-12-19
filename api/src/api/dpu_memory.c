@@ -21,7 +21,10 @@
 
 #include <stdint.h>
 #include <sys/time.h>
-#define T int32_t   //! PIDCOMM
+
+#include<pidcomm.h>
+#define T uint32_t   //! PIDCOMM
+
 
 
 #define IRAM_MASK (0x80000000u)
@@ -901,13 +904,20 @@ dpu_push_xfer_symbol(struct dpu_set_t dpu_set,
 #endif
 
 
-
-
 typedef struct {
-    struct dpu_set_t dpu_set;
-    uint32_t dimension;
-    uint32_t* axis_len;
-} hypercube_manager;
+    uint32_t start_offset;
+    uint32_t target_offset;
+    uint32_t total_data_size;
+    uint32_t num_comm_dpu;
+    uint32_t each_dpu;
+    bool no_rotate;
+    uint32_t num_row;
+    uint32_t comm_type;
+    uint32_t a_length;
+    uint32_t num_comm_rg;
+} dpu_arguments_comm_t;
+
+
 
 
 __API_SYMBOL__
@@ -919,4 +929,204 @@ hypercube_manager* init_hypercube_manager(struct dpu_set_t dpu_set, uint32_t dim
     manager->axis_len = axis_len;
 
     return manager;
+}
+
+__API_SYMBOL__ dpu_error_t
+all_to_all(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis)
+{
+    dpu_error_t status = DPU_OK;
+    struct dpu_rank_t *rank_set = comm_dpu_set->list.ranks[0];
+    status = (dpu_error_t)rank_set->handler_context->handler->all_to_all_rns(comm_dpu_set, src_start_offset, dst_start_offset, byte_length, comm_type, communication_buffer_offset, dimension, axis_len, comm_axis);
+    return status;
+}
+
+__API_SYMBOL__
+void pidcomm_alltoall(hypercube_manager* manager, char* comm, uint32_t total_data_size, uint32_t start_offset,
+                        uint32_t target_offset, uint32_t buffer_offset){
+
+    struct dpu_set_t dpu_set = manager->dpu_set;
+    uint32_t dimension = manager->dimension;
+    uint32_t* axis_len = manager->axis_len;
+
+    uint32_t* comm_axis = malloc(sizeof(uint32_t) * dimension);
+
+    for(uint32_t dim=0; dim<dimension; dim++){
+        comm_axis[dim] = (int)(*(comm+dim))-48;  //* ascii of '0' is 48
+    }
+
+
+    struct dpu_set_t dpu;
+    uint32_t nr_dpus;
+    DPU_ASSERT(dpu_get_nr_dpus(dpu_set, &nr_dpus));
+    dpu_arguments_comm_t* dpu_argument = (dpu_arguments_comm_t*) malloc(sizeof(dpu_arguments_comm_t) * nr_dpus);
+    uint32_t num_comm_dpu = 1;
+    uint32_t comm_type;
+
+    if(comm_axis[0] == 1){
+        comm_type = 0;
+    }
+    else comm_type = 1;
+
+    for(uint32_t dim=0; dim<dimension; dim++){
+        if(comm_axis[dim]==1){
+            num_comm_dpu *= axis_len[dim];
+        }
+    }
+
+    T** result = (T**) calloc(nr_dpus, sizeof(T*));
+    for(int i=0; i<(int)nr_dpus; i++)
+        result[i] = (T*) calloc(total_data_size/sizeof(T), sizeof(T));
+    int i;
+
+    uint32_t num_comm_rg = 1;
+    for(uint32_t dim=0, len = 1; dim<dimension&&len<8; len*=axis_len[dim], dim++){  //TODO changed from PID, mainly bug
+        if(comm_axis[dim] == 1){
+            if (axis_len[dim] <= (8/len)) num_comm_rg *= axis_len[dim];
+            else num_comm_rg *= (8/len);
+        }
+        if(num_comm_rg >= 8) num_comm_rg = 8;
+    }
+
+    //relocate before kernel
+    if(!comm_type){
+    //if(0){
+        //DPU_ASSERT(dpu_load(dpu_set, getenv("DPU_BINARY_RELOCATE_2"), NULL));
+        DPU_ASSERT(dpu_load(dpu_set, DPU_BINARY_RELOCATE_CLOCKWISE, NULL));
+
+        for(int i=0; i<(int)nr_dpus; i++){
+            //printf("%d\n",i);
+            dpu_argument[i].each_dpu = i;
+            dpu_argument[i].start_offset = start_offset;
+            dpu_argument[i].target_offset = start_offset;
+            dpu_argument[i].total_data_size = total_data_size;
+            dpu_argument[i].num_comm_dpu = num_comm_dpu;
+            dpu_argument[i].no_rotate = 0;
+            dpu_argument[i].comm_type = comm_type;
+            dpu_argument[i].a_length = axis_len[0];
+
+        }
+        
+
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+
+            DPU_ASSERT(dpu_prepare_xfer(dpu, dpu_argument+i));     
+        }
+        DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS_RS1", 0, sizeof(dpu_arguments_comm_t), DPU_XFER_DEFAULT));
+
+        // Run kernel on DPUs
+        DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    }
+    i=0;
+    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+        DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
+    }
+    //DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, 8, DPU_XFER_DEFAULT));  //! seems unused
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset , total_data_size, DPU_XFER_DEFAULT));
+    // printf("***************************\n");
+    // uint32_t data_num_per_dpu = total_data_size/sizeof(uint32_t);
+    // for(uint32_t i=0; i<nr_dpus; i++){
+    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
+    //             printf("%.4x ",result[i][j]);
+    //             //fprintf(stderr,"%d ",result[i*data_num_per_dpu+j]);
+    //     }
+    //     printf("\n");
+    // }
+    all_to_all(&dpu_set, start_offset, start_offset, total_data_size/num_comm_dpu, comm_type, buffer_offset, dimension, axis_len, comm_axis);
+
+    i=0;
+    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+        DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset + buffer_offset, total_data_size, DPU_XFER_DEFAULT));
+    // printf("***************************\n");
+    // uint32_t data_num_per_dpu = total_data_size/sizeof(uint32_t);
+    // for(uint32_t i=0; i<nr_dpus; i++){
+    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
+    //             printf("%.8x ",result[i][j]);
+    //             //fprintf(stderr,"%d ",result[i*data_num_per_dpu+j]);
+    //     }
+    //     printf("\n");
+    // }
+
+    // i=0;
+    // DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+    //     DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));        
+    // }
+    // DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset + buffer_offset, total_data_size, DPU_XFER_DEFAULT));
+
+
+    //relocate after kernel
+    if(axis_len[0]==2 && axis_len[1]==2 && ((comm_axis[0]==1 && comm_axis[1]==0 && comm_axis[2]==1) || (comm_axis[0]==0 && comm_axis[1]==1 && comm_axis[2]==0))){
+        //DPU_ASSERT(dpu_load(dpu_set, getenv("DPU_ALLTOALL_22"), NULL));
+        DPU_ASSERT(dpu_load(dpu_set, DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE, NULL));
+
+        for(int i=0; i<(int)nr_dpus; i++){
+            dpu_argument[i].each_dpu = i;
+            dpu_argument[i].start_offset = start_offset + buffer_offset;
+            dpu_argument[i].target_offset = target_offset;
+            dpu_argument[i].total_data_size = total_data_size;
+            dpu_argument[i].num_comm_dpu = num_comm_dpu;
+            dpu_argument[i].no_rotate = 0;
+            dpu_argument[i].comm_type = comm_type;
+            dpu_argument[i].a_length = axis_len[0];
+            dpu_argument[i].num_comm_rg = 2;
+        }
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+            DPU_ASSERT(dpu_prepare_xfer(dpu, dpu_argument+i));
+                
+        }
+        DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS_RS1", 0, sizeof(dpu_arguments_comm_t), DPU_XFER_DEFAULT));
+
+        // Run kernel on DPUs
+        DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    }
+    else if(!comm_type  || (axis_len[0]<8 && comm_axis[1]==1) || (axis_len[0]*axis_len[1]==4 && (comm_axis[1] == 1 || comm_axis[2] == 1)) ){
+        //DPU_ASSERT(dpu_load(dpu_set, getenv("DPU_ALLTOALL_X_2"), NULL));
+        DPU_ASSERT(dpu_load(dpu_set, DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE, NULL));
+
+        for(int i=0; i<(int)nr_dpus; i++){
+            dpu_argument[i].each_dpu = i;
+            dpu_argument[i].start_offset = start_offset + buffer_offset;
+            dpu_argument[i].target_offset = target_offset;
+            dpu_argument[i].total_data_size = total_data_size;
+            dpu_argument[i].num_comm_dpu = num_comm_dpu;
+            dpu_argument[i].no_rotate = 0;
+            dpu_argument[i].comm_type = comm_type;
+            dpu_argument[i].a_length = axis_len[0];
+            dpu_argument[i].num_comm_rg = num_comm_rg;
+        }
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+            DPU_ASSERT(dpu_prepare_xfer(dpu, dpu_argument+i));
+                
+        }
+        DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS_RS1", 0, sizeof(dpu_arguments_comm_t), DPU_XFER_DEFAULT));
+
+        // Run kernel on DPUs
+        DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    }
+    else{
+        //DPU_ASSERT(dpu_load(dpu_set, getenv("DPU_BINARY_RELOCATE_2"), NULL));
+        DPU_ASSERT(dpu_load(dpu_set, DPU_BINARY_RELOCATE_CLOCKWISE, NULL));
+
+        for(int i=0; i<(int)nr_dpus; i++){
+            dpu_argument[i].each_dpu = i;
+            dpu_argument[i].start_offset = start_offset+ buffer_offset;
+            dpu_argument[i].target_offset = target_offset;
+            dpu_argument[i].total_data_size = total_data_size;
+            dpu_argument[i].num_comm_dpu = num_comm_dpu;
+            dpu_argument[i].no_rotate = 1;
+            dpu_argument[i].comm_type = comm_type;
+            dpu_argument[i].a_length = axis_len[0];
+        }
+
+        
+
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+            DPU_ASSERT(dpu_prepare_xfer(dpu, dpu_argument+i));
+                
+        }
+        DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "DPU_INPUT_ARGUMENTS_RS1", 0, sizeof(dpu_arguments_comm_t), DPU_XFER_DEFAULT));
+
+        DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    }
 }

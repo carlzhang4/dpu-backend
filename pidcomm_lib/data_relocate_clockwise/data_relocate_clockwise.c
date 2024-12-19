@@ -55,12 +55,21 @@ int main(){
     uint32_t comm_type = DPU_INPUT_ARGUMENTS_RS1.comm_type; //whether it contains the x axis
     uint32_t a_length = DPU_INPUT_ARGUMENTS_RS1.a_length; //length of the x-axis
 
+    
+    // uint32_t start_offset = 0;
+    // uint32_t target_offset = 0;
+    // uint32_t total_data_size = 1024;
+    // uint32_t num_comm_dpu = 16;
+    //uint32_t dpu_num = 1;
+    // uint32_t no_rotate = 0;
+    // uint32_t comm_type = 1; //whether it contains the x axis
+    // uint32_t a_length = 16; //length of the x-axis
+
     uint32_t original_addr; // address for word to move
     uint32_t target_addr; //target address for word to move 
 
-
+    printf("0\n");
     if(num_comm_dpu % 8 == 0){
-
         max_words_per_dpu = (total_data_size / (num_comm_dpu * sizeof(T)));
 
         barrier_wait(&tasklet_8_barrier);
@@ -72,7 +81,6 @@ int main(){
         uint32_t iter;
         if((max_words_per_dpu * sizeof(T)) % 2048 == 0) iter = (max_words_per_dpu * sizeof(T)) / 2048;
         else iter = (max_words_per_dpu * sizeof(T)) / 2048 + 1;
-
         uint32_t row_index, col_index, leftover_num;
         int offset;
 

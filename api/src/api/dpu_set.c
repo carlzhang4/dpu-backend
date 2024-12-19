@@ -1073,7 +1073,7 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
     bool dispatch_on_all_ranks;
     
     if (nr_dpus == 0) {
-        LOG_FN(WARNING, "cannot allocate 0 DPUs");
+        //LOG_FN(WARNING, "cannot allocate 0 DPUs");
         return DPU_ERR_ALLOCATION;
     }
 
@@ -1106,6 +1106,7 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
 
     do {
         // allocating space for new rank
+        //printf("current_nr_of_ranks:%d, ", current_nr_of_ranks);
         if (current_nr_of_ranks == capacity) {
             capacity = 2 * capacity + 2;
 
@@ -1120,12 +1121,13 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
         struct dpu_rank_t **next_rank = current_ranks + current_nr_of_ranks;
         // We try to allocate a new rank
         status = dpu_get_rank_of_type(profile, next_rank);
-
+       // printf("status:%d\n", status);
         // case : it failed but we simply allocate all
         if (status == DPU_ERR_ALLOCATION &&
             current_nr_of_ranks != 0 && 
             (nr_dpus == DPU_ALLOCATE_ALL || dispatch_on_all_ranks)) 
         {
+            //printf("status == DPU_ERR_ALLOCATION\n");
             // in case not enough dpus
             if (dispatch_on_all_ranks && current_nr_of_dpus < nr_dpus) 
             {
@@ -1134,11 +1136,13 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
             // case : it failed but that's not normal
         } else if (status != DPU_OK) 
         {
+            //printf("status != DPU_OK\n");
             goto error_free_ranks;
             // case : otherwise it passed
         } 
         else 
         {
+            //printf("status == DPU_OK\n");
             current_nr_of_ranks++;
             if (!(*next_rank)->description->configuration.disable_reset_on_alloc) 
             {
@@ -1162,6 +1166,7 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
                 //complete_rank_array[current_nr_of_ranks-1]=1; //complete_rank
             }
             else{
+                //printf("incomplete_nr_of_dpus!!! : %d\n", get_nr_of_dpus_in_rank(*next_rank));
                 //printf("Find the reason of dpu allocation error: Incomplete current_nr_of_ranks=%d\n", current_nr_of_ranks);
                 complete_rank_array[current_nr_of_ranks-1]=2; //incomplete_rank.. 2 means not allocated rank
                 incomplete_nr_of_dpus+=get_nr_of_dpus_in_rank(*next_rank);
@@ -1171,8 +1176,10 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
             
         }
         // we either reached sufficient dpus or failed to allocate
+        //printf(" current_nr_of_dpus:%d, nr_dpus:%d, incomplete_nr_of_dpus:%d\n", current_nr_of_dpus, nr_dpus, incomplete_nr_of_dpus);
     } 
     while ((dispatch_on_all_ranks || current_nr_of_dpus < (nr_dpus+incomplete_nr_of_dpus)) && (status != DPU_ERR_ALLOCATION));
+    //printf("current_nr_of_dpus:%d, nr_dpus:%d, incomplete_nr_of_dpus:%d\n", current_nr_of_dpus, nr_dpus, incomplete_nr_of_dpus);
     uint32_t complete_rank_alloc_index=0;
     for(uint32_t i=0; i<40; i++){
         if(complete_rank_array[i]==0){ //not allocated rank
@@ -1216,4 +1223,86 @@ error_free_ranks:
         free(current_ranks);
     }
     return status;
+}
+
+
+//! PIDCOMM
+
+static void
+advance_to_next_dpu_in_rank_list_rotate_group(struct dpu_set_dpu_iterator_t *iterator, uint32_t cube_size)
+{
+    // //struct dpu_rank_t *rank = *iterator->rank_iterator.next.list.ranks;
+    // //uint32_t dpu_idx = iterator->next_idx;
+    // //uint8_t nr_cis = rank->description->hw.topology.nr_of_control_interfaces;
+    // //uint8_t nr_dpus_per_ci = rank->description->hw.topology.nr_of_dpus_per_control_interface;
+    // //uint32_t nr_dpus = nr_cis * nr_dpus_per_ci;
+    // uint32_t num_rotate_group = cube_size/8;
+    // if(cube_size>64){
+    //     num_rotate_group=64/8;
+    // }
+    // num_rotate_group+=0;
+    // //uint32_t my_dpu_idx;
+    // //my_each_dpu= (sys_each_dpu%k)*8 + (sys_each_dpu/8); //sys=51, my=30
+
+
+    // iterator->has_next = false;
+        struct dpu_rank_t *rank = *iterator->rank_iterator.next.list.ranks;
+    uint32_t dpu_idx = iterator->next_idx;
+    uint8_t nr_cis = rank->description->hw.topology.nr_of_control_interfaces;
+    uint8_t nr_dpus_per_ci = rank->description->hw.topology.nr_of_dpus_per_control_interface;
+    uint32_t nr_dpus = nr_cis * nr_dpus_per_ci;
+    uint32_t num_rotate_group = cube_size/8;
+    if(cube_size>64){
+        num_rotate_group=64/8;
+    }
+    num_rotate_group+=0;
+    uint32_t my_dpu_idx;
+    //my_each_dpu= (sys_each_dpu%k)*8 + (sys_each_dpu/8); //sys=51, my=30
+    do {
+        for (; dpu_idx < nr_dpus; ++dpu_idx) {
+            my_dpu_idx=(dpu_idx%8)*8 + (dpu_idx/8); //8 //sys_dpu_idx --> my_dpu_idx(grouping rotate_group)
+            struct dpu_t *dpu = rank->dpus + my_dpu_idx;
+            //struct dpu_t *dpu = rank->dpus + dpu_idx;
+
+            if (dpu->enabled) {
+                iterator->has_next = true;
+                iterator->next_idx = dpu_idx + 1;
+                iterator->next.dpu = dpu;
+                return;
+            }
+        }
+
+        dpu_set_rank_iterator_next(&iterator->rank_iterator);
+        rank = *iterator->rank_iterator.next.list.ranks;
+        dpu_idx = 0;
+    } while (iterator->rank_iterator.has_next);
+
+    iterator->has_next = false;
+}
+
+__API_SYMBOL__ void
+dpu_set_dpu_iterator_next_entangled_group(struct dpu_set_dpu_iterator_t *iterator, uint32_t cube_size)
+{
+    iterator->count++;
+
+    if (!iterator->has_next) {
+        //printf("No next\n");
+        return;
+    }
+    //printf("Has next\n");
+    switch (iterator->rank_iterator.set->kind) {
+        case DPU_SET_RANKS: {
+            //printf("Rank\n");
+            advance_to_next_dpu_in_rank_list_rotate_group(iterator, cube_size);
+            break;
+        }
+        case DPU_SET_DPU:
+            //printf("DPU\n");
+            iterator->has_next = false;
+            break;
+        default:
+            //printf("Default\n");
+            iterator->has_next = false;
+            break;
+    }
 }

@@ -697,6 +697,12 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
 dpu_error_t
 dpu_alloc_custom(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set, int* enabled_dpus);
 
+void
+dpu_set_dpu_iterator_next_entangled_group(struct dpu_set_dpu_iterator_t *iterator, uint32_t cube_size);
 
+#define DPU_FOREACH_ENTANGLED_GROUP(set, dpu, i, cube_size) \
+    for (struct dpu_set_dpu_iterator_t __dpu_it = dpu_set_dpu_iterator_from(&set);                                               \
+         i = __dpu_it.count, dpu = __dpu_it.next, __dpu_it.has_next;                                                             \
+         dpu_set_dpu_iterator_next_entangled_group(&__dpu_it, cube_size))
 
 #endif // DPU_H

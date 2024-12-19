@@ -9,7 +9,7 @@ DPU_DIR8 := data_relocate_reverse_clockwise_short
 
 HOST_DIR := host
 BUILDDIR := bin
-TYPE := INT32
+TYPE := UINT32
 NR_TASKLETS := 16
 NR_DPUS := 1024
 
