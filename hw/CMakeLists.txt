@@ -78,16 +78,10 @@ if(ENABLE_DEBUG)
 	add_definitions("-g")
 endif()
 
-set( UTILS_SOURCES
-		../util/utils.cpp
-        )
-
-add_library(utils SHARED ${UTILS_SOURCES})
-set_target_properties(utils PROPERTIES LINKER_LANGUAGE CXX)
 
 add_library( dpuhw SHARED ${HW_SOURCES} )
 target_include_directories( dpuhw PUBLIC ${INCLUDE_DIRECTORIES} ${HW_DIR} ${LIBUDEV_INCLUDE_DIR} ${LIBNUMA_INCLUDE_DIR} ${GEN_INCLUDE_DIRECTORY})
-target_link_libraries( dpuhw dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} ibverbs mlx5 utils)
+target_link_libraries( dpuhw utils dpuverbose dpuvpd ${LIBUDEV_LIBRARIES} ${LIBNUMA_LIBRARIES} ibverbs mlx5)
 set_target_properties(dpuhw PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(dpuhw gen_files)
 

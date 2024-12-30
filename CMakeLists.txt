@@ -102,6 +102,7 @@ macro(add_optional_subdirectory subdirectory)
     endif()
 endmacro()
 
+add_subdirectory(util)
 add_subdirectory(gen)
 add_subdirectory(api)
 add_subdirectory(ufi)
@@ -110,6 +111,7 @@ add_subdirectory(verbose)
 add_subdirectory(host-lldb-attach-dpu)
 add_subdirectory(python)
 add_subdirectory(vpd)
+add_subdirectory(pimnic)
 
 add_subdirectory(example)
 
