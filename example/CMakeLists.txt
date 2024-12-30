@@ -83,6 +83,13 @@ target_compile_definitions(test_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(test_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(test_host gen_files)
 
+add_executable(DPU_CPU_Bandwidth ./DPU_CPU_Bandwidth.c ${ALL_SOURCES} )
+target_include_directories( DPU_CPU_Bandwidth PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries( DPU_CPU_Bandwidth dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(DPU_CPU_Bandwidth PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(DPU_CPU_Bandwidth PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(DPU_CPU_Bandwidth gen_files)
+
 
 #Device target
 set(INPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
@@ -105,9 +112,20 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_FILE2}"
 )
 
+set(INPUT_FILE3 "${CMAKE_CURRENT_SOURCE_DIR}/dpu_user2.c")
+set(OUTPUT_FILE3 "dpu_user2")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_FILE3}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 ${INPUT_FILE3} -o ${OUTPUT_FILE3}
+  DEPENDS ${INPUT_FILE3}
+  COMMENT "Generating ${OUTPUT_FILE3}"
+)
+
 add_custom_target(
   generate_output
   ALL
   DEPENDS ${OUTPUT_FILE}
   DEPENDS ${OUTPUT_FILE2}
+  DEPENDS ${OUTPUT_FILE3}
 )

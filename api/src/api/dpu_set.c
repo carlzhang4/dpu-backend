@@ -1104,9 +1104,10 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
     uint32_t incomplete_nr_of_dpus=0;
     uint32_t complete_rank_array[40]={0,};
 
+    //printf("start do while\n");
     do {
         // allocating space for new rank
-        //printf("current_nr_of_ranks:%d, ", current_nr_of_ranks);
+        //printf("current_nr_of_ranks:%d \n", current_nr_of_ranks);
         if (current_nr_of_ranks == capacity) {
             capacity = 2 * capacity + 2;
 
@@ -1153,15 +1154,16 @@ dpu_alloc_comm(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set,
             current_nr_of_dpus += get_nr_of_dpus_in_rank(*next_rank);
 
             //mo2
+            //printf("dpus_in_rank:%d\n", get_nr_of_dpus_in_rank(*next_rank));
             if(get_nr_of_dpus_in_rank(*next_rank)==64){
                 //printf("Find the reason of dpu allocation error: Complete current_nr_of_ranks=%d\n", current_nr_of_ranks);
-                if(current_nr_of_ranks>=18 && current_nr_of_ranks!=24){
+                //if(current_nr_of_ranks>=18 && current_nr_of_ranks!=24){
                     complete_rank_array[current_nr_of_ranks-1]=1; //complete_rank
-                }
-                else{
-                    complete_rank_array[current_nr_of_ranks-1]=2; //complete_rank
-                    incomplete_nr_of_dpus+=get_nr_of_dpus_in_rank(*next_rank);
-                }
+                //}
+                // else{
+                //     complete_rank_array[current_nr_of_ranks-1]=2; //complete_rank
+                //     incomplete_nr_of_dpus+=get_nr_of_dpus_in_rank(*next_rank);
+                // }
                 
                 //complete_rank_array[current_nr_of_ranks-1]=1; //complete_rank
             }
