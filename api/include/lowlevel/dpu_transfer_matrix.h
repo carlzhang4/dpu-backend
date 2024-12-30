@@ -28,6 +28,7 @@
  * @private
  * @hideinitializer
  */
+#ifndef struct_dpu_transfer_matrix_t
 #define struct_dpu_transfer_matrix_t
 
 /**
@@ -48,6 +49,7 @@ struct dpu_transfer_matrix {
     /** Type of transfer (default or scatter gather). */
     dpu_transfer_matrix_type_t type;
 };
+#endif
 
 /**
  * @brief Add the specified DPU to the given memory transfer matrix.

@@ -99,6 +99,8 @@ hw_custom_operation(struct dpu_rank_t *rank,
 static dpu_rank_status_e
 hw_get_nr_dpu_ranks(uint32_t *nr_ranks);
 
+static uint64_t __get_base_region_address(struct dpu_rank_t* rank_o);
+
 __API_SYMBOL__ struct dpu_rank_handler hw_dpu_rank_handler = {
     .allocate = hw_allocate,
     .free = hw_free,
@@ -109,6 +111,7 @@ __API_SYMBOL__ struct dpu_rank_handler hw_dpu_rank_handler = {
     .fill_description_from_profile = hw_fill_description_from_profile,
     .custom_operation = hw_custom_operation,
     .get_nr_dpu_ranks = hw_get_nr_dpu_ranks,
+	.__get_base_region_address = __get_base_region_address,
 };
 
 typedef struct _hw_dpu_rank_context_t {
@@ -151,6 +154,11 @@ static inline hw_dpu_rank_allocation_parameters_t
 _this_params(dpu_description_t description)
 {
     return (hw_dpu_rank_allocation_parameters_t)(description->_internals.data);
+}
+
+uint64_t __get_base_region_address(struct dpu_rank_t* rank_o){
+	hw_dpu_rank_allocation_parameters_t params = (hw_dpu_rank_allocation_parameters_t)(rank_o->description->_internals.data);
+	return (uint64_t)(params->ptr_region);
 }
 
 static inline bool

@@ -48,6 +48,7 @@ typedef struct dpu_rank_handler {
     dpu_rank_status_e (*fill_description_from_profile)(dpu_properties_t properties, dpu_description_t description);
 
     dpu_rank_status_e (*get_nr_dpu_ranks)(uint32_t *nr_ranks);
+	uint64_t (*__get_base_region_address)(struct dpu_rank_t *rank);
 } * dpu_rank_handler_t;
 
 #define RANK_FEATURE(rank, feature) ((rank)->handler_context->handler->features.feature)
