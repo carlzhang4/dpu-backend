@@ -123,7 +123,7 @@ add_custom_command(
 )
 
 add_custom_target(
-  generate_output
+  generate_output_files
   ALL
   DEPENDS ${OUTPUT_FILE}
   DEPENDS ${OUTPUT_FILE2}

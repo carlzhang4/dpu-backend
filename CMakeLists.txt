@@ -112,6 +112,7 @@ add_subdirectory(python)
 add_subdirectory(vpd)
 
 add_subdirectory(example)
+add_subdirectory(naive_comm)
 
 add_optional_subdirectory(fsim)
 add_optional_subdirectory(casim)
