@@ -149,7 +149,7 @@ int test(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    //printf("*************************\n");
+    // printf("*************************\n");
     // FILE *fp;
     // fp=fopen("/home/pimnic/ziyu/baseline/results/PIDComm_alltoall.txt","w");
     //  for(uint32_t i=0; i<10; i++){

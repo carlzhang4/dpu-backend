@@ -1017,11 +1017,11 @@ void pidcomm_alltoall(hypercube_manager* manager, char* comm, uint32_t total_dat
         DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
     }
     i=0;
-    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
-        DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
-    }
+    // DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+    //     DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
+    // }
     //DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, 8, DPU_XFER_DEFAULT));  //! seems unused
-    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset , total_data_size, DPU_XFER_DEFAULT));
+    // DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset , total_data_size, DPU_XFER_DEFAULT));
     // printf("***************************\n");
     // uint32_t data_num_per_dpu = total_data_size/sizeof(uint32_t);
     // for(uint32_t i=0; i<nr_dpus; i++){
@@ -1033,11 +1033,11 @@ void pidcomm_alltoall(hypercube_manager* manager, char* comm, uint32_t total_dat
     // }
     all_to_all(&dpu_set, start_offset, start_offset, total_data_size/num_comm_dpu, comm_type, buffer_offset, dimension, axis_len, comm_axis);
 
-    i=0;
-    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
-        DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
-    }
-    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset + buffer_offset, total_data_size, DPU_XFER_DEFAULT));
+    // i=0;
+    // DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+    //     DPU_ASSERT(dpu_prepare_xfer(dpu, result[i]));
+    // }
+    // DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, start_offset + buffer_offset, total_data_size, DPU_XFER_DEFAULT));
     // printf("***************************\n");
     // uint32_t data_num_per_dpu = total_data_size/sizeof(uint32_t);
     // for(uint32_t i=0; i<nr_dpus; i++){
