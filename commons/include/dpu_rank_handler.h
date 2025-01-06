@@ -36,6 +36,14 @@ typedef struct dpu_rank_handler {
 
     dpu_rank_status_e (*all_to_all_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis);
 
+    dpu_rank_status_e (*all_gather_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis);
+    
+    dpu_rank_status_e (*all_reduce_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis, uint32_t size, uint32_t reduce_type);
+    
+    dpu_rank_status_e (*reduce_scatter_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t dimension, uint32_t* axis_len, uint32_t* comm_axis, uint32_t size);
+    dpu_rank_status_e (*reduce_scatter_cpu_x_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t a, uint32_t b, uint32_t c, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size);
+    dpu_rank_status_e (*reduce_scatter_cpu_y_rns)(struct dpu_set_t *comm_dpu_set, uint32_t src_start_offset, uint32_t dst_start_offset, uint32_t byte_length, uint32_t a, uint32_t b, uint32_t c, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size);
+
     struct {
 #define FEATURE(feature, ...) dpu_error_t (*feature)(__VA_ARGS__);
 #include <rank_features.def>

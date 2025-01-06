@@ -1024,7 +1024,18 @@ unlock_and_exit:
 }
 
 struct dpu_region_address_translation xeon_sp_translate = {
-    .trans_all_to_all_rg = xeon_sp_trans_all_to_all_rg,
+    .trans_all_to_all_rg = xeon_sp_trans_all_to_all_rg,           //! PID_COMM
+    .trans_all_gather_rg = xeon_sp_trans_all_gather_rg,           //! PID_COMM
+    .trans_all_gather_rg_24 = xeon_sp_trans_all_gather_rg_24,      //! PID_COMM
+    .trans_all_gather_rg_22 = xeon_sp_trans_all_gather_rg_22,     //! PID_COMM
+    .trans_all_reduce_rg = xeon_sp_trans_all_reduce_rg,           //! PID_COMM
+    .trans_all_reduce_rg_24 = xeon_sp_trans_all_reduce_rg_24,     //! PID_COMM
+    .trans_all_reduce_rg_22 = xeon_sp_trans_all_reduce_rg_22,     //! PID_COMM
+    .trans_all_reduce_y_rg = xeon_sp_trans_all_reduce_y_rg,       //! PID_COMM
+    .trans_reduce_scatter_cpu_rg = xeon_sp_trans_reduce_scatter_cpu_rg,        //! PID_COMM
+    .trans_reduce_scatter_cpu_rg_24 = xeon_sp_trans_reduce_scatter_cpu_rg_24,  //! PID_COMM
+    .trans_reduce_scatter_cpu_rg_22 = xeon_sp_trans_reduce_scatter_cpu_rg_22,  //! PID_COMM
+    .trans_reduce_scatter_cpu_y_rg = xeon_sp_trans_reduce_scatter_cpu_y_rg,    //! PID_COMM
     .backend_id = DPU_BACKEND_XEON_SP,
     .capabilities = CAP_PERF | CAP_SAFE,
     .init_rank = xeon_sp_init_rank,
