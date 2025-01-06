@@ -99,7 +99,7 @@ int test(uint32_t data_num_per_dpu) {
 
     //Randomly set the data
     uint32_t *original_data = (uint32_t*)calloc(data_num_per_dpu*nr_dpus, sizeof(uint32_t));
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(uint32_t i=0; i<data_num_per_dpu*nr_dpus; i++){
         original_data[i] = i;
     }

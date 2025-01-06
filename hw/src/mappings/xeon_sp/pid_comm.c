@@ -92,33 +92,7 @@ static uint32_t apply_address_translation_on_mram_offset_a2a(uint32_t byte_offse
 #define chip_rank_a2a 64
 
 
-// #define RNS_COPY_a2a(rotate, rotate_bit, iter, src_rank_bgwise_addr, dst_rank_bgwise_addr)  \
-//     do                                                                                      \
-//     {                                                                                       \
-//         void *src_rank_clwise_addr = src_rank_bgwise_addr;                                  \
-//         void *dst_rank_clwise_addr1 = dst_rank_bgwise_addr;                                 \
-//                                                                                             \
-//         __m512i reg1;                                                                       \
-//          __m512i reg1_rot;                         \
-//         uint64_t temp[8];                                                                \
-//                                                                                             \
-//         for (int cl = 0; cl < iter; cl++)                                                   \
-//         {                                                                                   \
-//             reg1 = _mm512_stream_load_si512((void *)(src_rank_clwise_addr));                \
-//             _mm512_store_epi64(temp, reg1);                                             \
-//             for(int i = 0; i < 8; ++i) {                                                     \
-//                 printf("%lx ", temp[i]);                                                    \
-//             }                                                                                 \
-//             printf("\n");                                                                \
-//             reg1_rot = _mm512_rol_epi64(reg1, rotate_bit);                                  \
-//             _mm512_store_epi64(temp, reg1_rot);                                             \
-//             for(int i = 0; i < 8; ++i) {                                                     \
-//                 printf("%lx ", temp[i]);                                                    \
-//             }                                                                                 \
-//             printf("\n");                                                                \
-//             _mm512_stream_si512((void *)(dst_rank_clwise_addr1), reg1_rot);                     \
-//         }                                                                                   \
-//     } while (0)
+
 
 #define RNS_COPY_a2a(rotate, rotate_bit, iter, src_rank_bgwise_addr, dst_rank_bgwise_addr)  \
     do                                                                                      \
