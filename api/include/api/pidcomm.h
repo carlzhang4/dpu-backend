@@ -65,7 +65,7 @@ pidcomm_alltoall(hypercube_manager* manager, char* comm, uint32_t total_data_siz
  * @brief allgather() for PID-Comm
  * @param manager the hypercube manager that contains information about the hypercube
  * @param comm the bitmap string that contains the target dimensions
- * @param total_data_size the number of bytes for each DPUs
+ * @param total_data_size the number of bytes for each DPUs //! this size is the size after the data is gathered
  * @param start_offset the byte offset from the DPU's MRAM address where the data is copied
  * @param target_offset the byte offset from the DPU's MRAM address where to copy the data
  * @param buffer_offset the size of the buffer in bytes
@@ -82,7 +82,7 @@ pidcomm_allgather(hypercube_manager* manager, char* comm, uint32_t total_data_si
  * @param target_offset the byte offset from the DPU's MRAM address where to copy the data
  * @param buffer_offset the size of the buffer in bytes
  * @param size the size of the datatype
- * @param reduce_type the type of reduction operation. 1 for sum operation and 2 for max operation
+ * @param reduce_type the type of reduction operation. 0 for sum operation and 1 for max operation
  */
 void
 pidcomm_all_reduce(hypercube_manager* manager, char* comm, uint32_t total_data_size, uint32_t start_offset, uint32_t target_offset, uint32_t buffer_offset, uint32_t size, uint32_t reduce_type);

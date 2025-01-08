@@ -1368,7 +1368,6 @@ void *thread_all_gather_rns(void *thread_parameter){
         }
         params_src = _this_params(comm_dpu_set->list.ranks[src_rank_id] ->description);
         rank_base_address_src=params_src->ptr_region;
-
         params_src->translate.trans_all_gather_rg(rank_base_address_src, rank_base_address_dst, src_rg_id, dst_rg_id, src_start_offset_iter, dst_start_offset_iter, dpu_byte_length, comm_type, communication_buffer_offset, total_axis_product, num_inter_thread, thread_id%num_inter_thread);
     }
     return 0;
