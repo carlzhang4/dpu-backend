@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include "entities.h"
 #include "../util/utils.h"
+#include "../util/virt2phys.h"
+#include "../bfdma/dma_export.h"
 
 using namespace std;
 
@@ -94,6 +96,12 @@ public:
 		dpu_rank_handler_t handler = rank_o->handler_context->handler;
 		base_region_addr = handler->__get_base_region_address(rank_o);
 	}
+	void open_access(){
+		uint8_t mask = 0xff;
+		for(int i=0;i<8;i++){
+			dpu_switch_mux_for_dpu_line(rank_o, (uint8_t)i, mask);
+		}
+	}
 };
 
 
@@ -153,5 +161,17 @@ void bank_write_test(int dpu_idx, int size_shift, int value){
 		}else{
 			printf("DPU not found\n");
 		}
+	}
+}
+
+
+void export_test(){
+	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
+		auto& rank = it->second;
+		rank.open_access();
+
+		auto addr = rank.base_region_addr;
+
+		export_buffer((void*)addr, 1024);
 	}
 }
