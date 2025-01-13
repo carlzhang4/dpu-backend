@@ -74,20 +74,34 @@ target_compile_definitions(checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(checksum_host gen_files)
 
+add_executable(bf_checksum_host ./bf_checksum_host.c ${ALL_SOURCES} )
+target_include_directories( bf_checksum_host PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries( bf_checksum_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(bf_checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(bf_checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(bf_checksum_host gen_files)
 
 #Device target
-set(INPUT_FILE "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
-set(OUTPUT_FILE "checksum")
+set(input_file_checksum "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
+set(output_file_checksum "checksum")
+
+set(input_file_bf_checksum "${CMAKE_CURRENT_SOURCE_DIR}/bf_checksum.c")
+set(output_file_bf_checksum "bf_checksum")
 
 add_custom_command(
-  OUTPUT ${OUTPUT_FILE}
-  COMMAND dpu-upmem-dpurte-clang ${INPUT_FILE} -o ${OUTPUT_FILE}
-  DEPENDS ${INPUT_FILE}
-  COMMENT "Generating ${OUTPUT_FILE}"
+  OUTPUT ${output_file_checksum}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_checksum} -o ${output_file_checksum}
+  DEPENDS ${input_file_checksum}
+)
+
+add_custom_command(
+  OUTPUT ${output_file_bf_checksum}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_bf_checksum} -o ${output_file_bf_checksum}
+  DEPENDS ${input_file_bf_checksum}
 )
 
 add_custom_target(
   generate_output
   ALL
-  DEPENDS ${OUTPUT_FILE}
+  DEPENDS ${output_file_bf_checksum} ${output_file_checksum}
 )

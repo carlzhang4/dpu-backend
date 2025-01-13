@@ -49,6 +49,7 @@ __API_SYMBOL__ dpu_error_t ci_start_thread_rank(struct dpu_rank_t *rank,
 						    << each_slice;
 				}
 			}
+			// Comment below two lines to enable NIC accessing the DPU memory when the DPU is running
 			FF(dpu_switch_mux_for_dpu_line(rank, each_dpu,
 						       mux_mask));
 		}
