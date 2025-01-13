@@ -30,23 +30,8 @@
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./example/dpu_user2"
+#define DPU_BINARY_USER "./example/DPU_CPU_Bandwidth_host"
 #endif
-
-typedef struct {
-    uint32_t p_thread_id;
-    uint32_t p_num_comm_dpu;
-    uint32_t * p_before_data;
-    uint32_t * p_after_data;
-    uint32_t p_data_size_per_dpu;
-    uint32_t p_num_thread;
-    uint32_t p_dimension;   
-    uint32_t *p_axis_len;
-    uint32_t *p_comm_axis;
-}st_thread_parameter;
-
-
-
 
  
 uint64_t get_tscp(void)
@@ -77,21 +62,21 @@ int test(uint32_t nr_dpus,uint32_t test_size){
         original_data[i] = i;//rand() % 16;
     }
 
-    DPU_ASSERT(dpu_alloc(nr_dpus, NULL, &set));
+    DPU_ASSERT(dpu_alloc(nr_dpus, "nrThreadPerPool=8", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 
     DPU_FOREACH(set, dpu, each_dpu){
         DPU_ASSERT(dpu_prepare_xfer(dpu, &original_data[each_dpu * data_num_per_dpu]));
     }
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "buffer", 0, data_size_per_dpu, DPU_XFER_DEFAULT));
+    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
 
 
     long d1 =0,d2 =0;
     uint64_t t1,t2,t3,t4;
     
 
-    uint32_t interval = 1;
+    uint32_t interval = 20;
 
     //t1 = clock();
     for(uint32_t i=0;i<interval;i++)
@@ -101,7 +86,7 @@ int test(uint32_t nr_dpus,uint32_t test_size){
         DPU_FOREACH(set, dpu, each_dpu){
             DPU_ASSERT(dpu_prepare_xfer(dpu, &before_data[each_dpu * data_num_per_dpu]));
         }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "buffer", 0, data_size_per_dpu, DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
 
         t2 = get_tscp();
 
@@ -111,18 +96,20 @@ int test(uint32_t nr_dpus,uint32_t test_size){
         DPU_FOREACH(set, dpu, each_dpu){
             DPU_ASSERT(dpu_prepare_xfer(dpu, &after_data[each_dpu * data_num_per_dpu]));
         }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "buffer", 0, data_size_per_dpu, DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
         t4 = get_tscp();
 
         d1 += 1.0*(t2-t1)/ 2.1;
         d2 += 1.0*(t4-t3)/ 2.1;
     }
-    // printf("time1 cost : %lf\n",1.0*d1/1000000/interval);
-    // printf("time3 cost : %lf\n",1.0*d2/1000000/interval);
-    // printf(" DPU 2 CPU Bandwidth: %lf GB/s ,each DPU: %lf GB/s\n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000/interval,1.0*test_size/1024/1024/1024/1.0/d1*1000000000/interval);
-    // printf(" CPU 2 DPU Bandwidth: %lf GB/s ,each DPU: %lf GB/s\n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000/interval,1.0*test_size/1024/1024/1024/1.0/d2*1000000000/interval);
-    printf("%u %u  %lf  %lf %lf  %lf \n",nr_dpus,test_size,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000/interval,1.0*test_size/1024/1024/1024/1.0/d1*1000000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000/interval,1.0*test_size/1024/1024/1024/1.0/d2*1000000000/interval);
-
+    printf("*********************************************\n");
+    printf("total dpu number : %d\n",nr_dpus);
+    printf("total data size : %d MB\n",test_size/1024/1024);
+    printf("DPU 2 CPU time cost : %lf\n",1.0*d1/1000000/interval);
+    printf("CPU 2 DPU cost : %lf\n",1.0*d2/1000000/interval);
+    printf("DPU 2 CPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval);
+    printf("CPU 2 DPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
+    
     DPU_ASSERT(dpu_free(set));
     return 0;
 
@@ -130,11 +117,11 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 
 int main()
 {
-    for(uint32_t i=1;i<=1024;i*=2){
-        for(uint32_t j=8;j<=8*1024*1024;j*=2){
-            test(i,j);
-        }
-    }
-    // test(1,32*1024*1024);
+    // for(uint32_t i=1;i<=1024;i*=2){
+    //     for(uint32_t j=8;j<=8*1024*1024;j*=2){
+    //         test(i,j);
+    //     }
+    // }
+    test(64,4194304);
     return 0;
 }

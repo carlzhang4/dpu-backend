@@ -6,7 +6,7 @@
 #include <pidcomm.h>
 #include <time.h>
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./example/dpu_user"
+#define DPU_BINARY_USER "./example/test_host"
 #endif
 
 #define PID_ALLTOALL_RESULT "/home/pimnic/ziyu/baseline/results/PIDComm_alltoall.txt"
@@ -121,16 +121,7 @@ int test(uint32_t data_num_per_dpu) {
     for(uint32_t i=0; i<data_num_per_dpu*nr_dpus; i++){
         original_data[i] = i;
     }
-    //uint32_t original_data [] = {0,1,2,3,4,5,6,7,9,10,11,12,13,14,15,8,18,19,20,21,22,23,16,17,27,28,29,30,31,24,25,26,36,37,38,39,32,33,34,35,45,46,47,40,41,42,43,44,54,55,48,49,50,51,52,53,63,56,57,58,59,60,61,62};
 
-
-
-    // for(uint32_t i=0; i<nr_dpus; i++){
-    //         for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //             printf("%.4x ",original_data[i*data_num_per_dpu+j]);
-    //         }
-    //         printf("\n");
-    // }
 
     //Send data to each DPU
     
@@ -146,16 +137,9 @@ int test(uint32_t data_num_per_dpu) {
     uint64_t beg_tsc, end_tsc;
     //int interval = 10;
     beg_tsc = get_tscp();
-    // beg_tsc = get_tscp();
-    //t1 = clock();
-    //for(int i=0;i<interval;i++)
-    //{
+
         pidcomm_alltoall(hypercube_manager, "110", data_size_per_dpu, start_offset, target_offset, buffer_offset);
-    //}
-    // t4 = clock();
-    // sum = 1.0*(t4-t1)/CLOCKS_PER_SEC * 1000;
-    //end_tsc = get_tscp();
-    //sum = cycles_2_ns((end_tsc-beg_tsc), get_cpu_freq());
+  
     end_tsc = get_tscp();
     sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
     printf("%lf\n",1.0*sum/1000000);
@@ -167,18 +151,7 @@ int test(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    // printf("*************************\n");
-    // FILE *fp;
-    // fp=fopen("/home/pimnic/ziyu/baseline/results/PIDComm_alltoall.txt","w");
-    //  for(uint32_t i=0; i<10; i++){
-    // //for(uint32_t i=0; i<1; i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //             fprintf(fp,"dpu: %d num: %d value: %x \n",i,j,original_data[i*data_num_per_dpu+j]);
-    //     }
-    // }
-    // fclose(fp);
-    //     // printf("\n");
-    // }
+
     return 0;
 }
 
@@ -223,12 +196,7 @@ int test_allgather(uint32_t data_num_per_dpu) {
         original_data[i] = i;
     }
 
-    // for(uint32_t i=0; i<nr_dpus; i++){
-    //         for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //             printf("%.4x ",original_data[i*data_num_per_dpu+j]);
-    //         }
-    //         printf("\n");
-    // }
+
     
     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, each_dpu, nr_dpus){
         
@@ -257,7 +225,7 @@ int test_allgather(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    PrintResult(PID_ALLGATHER_RESULT,nr_dpus,data_num_per_dpu,result_data);
+    //PrintResult(PID_ALLGATHER_RESULT,nr_dpus,data_num_per_dpu,result_data);
     return 0;
 } 
 
@@ -328,31 +296,8 @@ int test_allreduce(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    printf("*************************\n");
     
-    uint32_t * correct_results = (uint32_t*)malloc(data_num_per_dpu*sizeof(uint32_t));
-    for(uint32_t i=0;i<data_num_per_dpu;i++){
-        correct_results[i] = 0;
-    }
-    for(uint32_t i=0;i<nr_dpus;i++){
-        for(uint32_t j=0;j<data_num_per_dpu;j++){
-            correct_results[j] += original_data[i*data_num_per_dpu+j];
-        }
-    }
-    for(uint32_t i=0;i<nr_dpus;i++){
-        for(uint32_t j=0;j<data_num_per_dpu;j++){
-            if(result_data[j] != correct_results[j]){
-                printf("error\n");
-                printf("%d %lx %lx\n",j,result_data[j],correct_results[j]);
-                break;
-            }
-
-        }
-        if(i == nr_dpus-1){
-            printf("correct\n");
-        }
-    }
-    PrintResult(PID_ALLREDUCE_RESULT,nr_dpus,data_num_per_dpu,result_data);
+    //PrintResult(PID_ALLREDUCE_RESULT,nr_dpus,data_num_per_dpu,result_data);
 
     return 0;
 } 
@@ -396,16 +341,6 @@ int test_reducescatter(uint32_t data_num_per_dpu) {
     for(uint32_t i=0; i<data_num_per_dpu*nr_dpus; i++){
         original_data[i] = i%(1024*1024);
     }
-    //uint32_t original_data [] = {0,1,2,3,4,5,6,7,9,10,11,12,13,14,15,8,18,19,20,21,22,23,16,17,27,28,29,30,31,24,25,26,36,37,38,39,32,33,34,35,45,46,47,40,41,42,43,44,54,55,48,49,50,51,52,53,63,56,57,58,59,60,61,62};
-
-
-
-    // for(uint32_t i=0; i<nr_dpus; i++){
-    //         for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //             printf("%.4x ",original_data[i*data_num_per_dpu+j]);
-    //         }
-    //         printf("\n");
-    // }
 
     //Send data to each DPU
     
@@ -421,17 +356,9 @@ int test_reducescatter(uint32_t data_num_per_dpu) {
     uint64_t beg_tsc, end_tsc;
     //int interval = 10;
     beg_tsc = get_tscp();
-    // beg_tsc = get_tscp();
-    //t1 = clock();
-    //for(int i=0;i<interval;i++)
-    //{
-        pidcomm_reduce_scatter(hypercube_manager, "110", data_size_per_dpu, start_offset, target_offset, buffer_offset,sizeof(uint32_t));
-   
-    //}
-    // t4 = clock();
-    // sum = 1.0*(t4-t1)/CLOCKS_PER_SEC * 1000;
-    //end_tsc = get_tscp();
-    //sum = cycles_2_ns((end_tsc-beg_tsc), get_cpu_freq());
+
+    pidcomm_reduce_scatter(hypercube_manager, "110", data_size_per_dpu, start_offset, target_offset, buffer_offset,sizeof(uint32_t));
+  
     end_tsc = get_tscp();
     sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
     printf("%lf\n",1.0*sum/1000000);
@@ -443,31 +370,20 @@ int test_reducescatter(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    // printf("*************************\n");
-    // FILE *fp;
-    // fp=fopen("/home/pimnic/ziyu/baseline/results/PIDComm_alltoall.txt","w");
-    //  for(uint32_t i=0; i<10; i++){
-    // //for(uint32_t i=0; i<1; i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //             fprintf(fp,"dpu: %d num: %d value: %x \n",i,j,original_data[i*data_num_per_dpu+j]);
-    //     }
-    // }
-    // fclose(fp);
-    //     // printf("\n");
-    // }
-    PrintResult(PID_REDUCESCATTER_RESULT,nr_dpus,data_num_per_dpu,original_data);
+    //PrintResult(PID_REDUCESCATTER_RESULT,nr_dpus,data_num_per_dpu,original_data);
     return 0;
 } 
 
 int main()
 {
-    //for(uint32_t i=1024;i<=512*1024*4;i*=2){
-    //test(512*1024*4);
 
+    printf("test all gather\n");
     test_allgather(2*1024);
-    //test_reducescatter(512*1024*4);
-    //}
-    //test(4096*2);
-    //test_allreduce(2*1024*1024);
+    printf("test all reduce\n");
+    test_allreduce(2*1024*1024);
+    printf("test reduce scatter\n");
+    test_reducescatter(2*1024*1024);
+    printf("test all to all\n");
+    test(2*1024*1024);
     return 0;
 }

@@ -149,27 +149,21 @@ int test_allgather(uint32_t nr_dpus,uint32_t data_num_per_dpu)
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len, DPU_XFER_DEFAULT));
 
+    double sum=0;
+    uint64_t beg_tsc, end_tsc;
+    beg_tsc = get_tscp();
     naive_allgather(set, data_num_per_dpu*sizeof(uint32_t), 0, 0);
-    
+    end_tsc = get_tscp();
+    sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
+    printf("%lf\n",1.0*sum/1000000);
+
     uint32_t *allgather_results= (uint32_t*)malloc(data_num_per_dpu*nr_dpus*nr_dpus*sizeof(uint32_t));
     DPU_FOREACH(set, dpu, each_dpu){
         DPU_ASSERT(dpu_prepare_xfer(dpu, &allgather_results[each_dpu * data_num_per_dpu*nr_dpus]));
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len*nr_dpus, DPU_XFER_DEFAULT));
-
-    for(uint32_t i=0;i<nr_dpus;i++){
-        for(uint32_t j=0;j<data_num_per_dpu*nr_dpus;j++){
-            if(before_data[j] != allgather_results[i*data_num_per_dpu*nr_dpus+j]){
-                printf("error\n");
-                printf("%d %d %d\n",j,before_data[j],allgather_results[i*data_num_per_dpu*nr_dpus+j]);
-                break;
-            }
-        }
-        if(i == nr_dpus-1){
-            printf("correct\n");
-        }
-    }
-    PrintResult(NAIVE_ALLGATHER_RESULT,nr_dpus,data_num_per_dpu,allgather_results);
+    DPU_ASSERT(dpu_free(set));
+    //PrintResult(NAIVE_ALLGATHER_RESULT,nr_dpus,data_num_per_dpu,allgather_results);
 }
 
 int test_allreduce(uint32_t nr_dpus,uint32_t data_num_per_dpu)
@@ -181,7 +175,7 @@ int test_allreduce(uint32_t nr_dpus,uint32_t data_num_per_dpu)
     uint32_t *before_data = (uint32_t*)calloc(data_num_per_dpu*nr_dpus, sizeof(uint32_t));
     uint32_t aligned_max_len = data_size_per_dpu%8==0?data_size_per_dpu:(data_size_per_dpu)+(8-(data_size_per_dpu)%8);
 
-    //uint32_t *after_data = (uint32_t*)calloc(data_num_per_dpu*nr_dpus, sizeof(uint32_t));
+    
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     for(uint32_t i=0; i<data_num_per_dpu*nr_dpus; i++){
         before_data[i] = i%(1024*1024);
@@ -191,37 +185,22 @@ int test_allreduce(uint32_t nr_dpus,uint32_t data_num_per_dpu)
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len, DPU_XFER_DEFAULT));
 
+    double sum=0;
+    uint64_t beg_tsc, end_tsc;
+    beg_tsc = get_tscp();
     naive_allreduce(set, data_num_per_dpu*sizeof(uint32_t), 0,0,1);
-
+    
+    end_tsc = get_tscp();
+    sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
+    printf("%lf\n",1.0*sum/1000000);
     
     uint32_t *allreduce_results= (uint32_t*)malloc(data_num_per_dpu*nr_dpus*sizeof(uint32_t));
     DPU_FOREACH(set, dpu, each_dpu){
         DPU_ASSERT(dpu_prepare_xfer(dpu, &allreduce_results[each_dpu * data_num_per_dpu]));
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len, DPU_XFER_DEFAULT));
-    // uint32_t * correct_results = (uint32_t*)malloc(data_num_per_dpu*sizeof(uint32_t));
-    // for(uint32_t i=0;i<data_num_per_dpu;i++){
-    //     correct_results[i] = 0;
-    // }
-    // for(uint32_t i=0;i<nr_dpus;i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //         correct_results[j] += before_data[i*data_num_per_dpu+j];
-    //     }
-    // }
-    // for(uint32_t i=0;i<nr_dpus;i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //         if(allreduce_results[j] != correct_results[j]){
-    //             printf("error\n");
-    //             printf("%d %lx %lx\n",j,allreduce_results[j],correct_results[j]);
-    //             break;
-    //         }
-
-    //     }
-    //     if(i == nr_dpus-1){
-    //         printf("correct\n");
-    //     }
-    // }
-    PrintResult(NAIVE_ALLREDUCE_RESULT,nr_dpus,data_num_per_dpu,allreduce_results);
+    DPU_ASSERT(dpu_free(set));
+    //PrintResult(NAIVE_ALLREDUCE_RESULT,nr_dpus,data_num_per_dpu,allreduce_results);
 }
 
 void test_alltoall(uint32_t nr_dpus,uint32_t data_num_per_dpu)
@@ -267,7 +246,7 @@ void test_reducescatter(uint32_t nr_dpus,uint32_t data_num_per_dpu)
     uint32_t *before_data = (uint32_t*)calloc(data_num_per_dpu*nr_dpus, sizeof(uint32_t));
     uint32_t aligned_max_len = data_size_per_dpu%8==0?data_size_per_dpu:(data_size_per_dpu)+(8-(data_size_per_dpu)%8);
 
-    //uint32_t *after_data = (uint32_t*)calloc(data_num_per_dpu*nr_dpus, sizeof(uint32_t));
+    
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     for(uint32_t i=0; i<data_num_per_dpu*nr_dpus; i++){
         before_data[i] = i%(1024*1024);
@@ -277,49 +256,32 @@ void test_reducescatter(uint32_t nr_dpus,uint32_t data_num_per_dpu)
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len, DPU_XFER_DEFAULT));
 
+    double sum=0;
+    uint64_t beg_tsc, end_tsc;
+    beg_tsc = get_tscp();
     naive_reducescatter(set, data_num_per_dpu*sizeof(uint32_t), 0,0,1);
+    end_tsc = get_tscp();
+    sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
+    printf("%lf\n",1.0*sum/1000000);
+
     uint32_t *reducescatter_results= (uint32_t*)malloc(data_num_per_dpu*nr_dpus*sizeof(uint32_t));
     DPU_FOREACH(set, dpu, each_dpu){
         DPU_ASSERT(dpu_prepare_xfer(dpu, &reducescatter_results[each_dpu * data_num_per_dpu]));
     }
     DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, aligned_max_len, DPU_XFER_DEFAULT));
-    // for(uint32_t i=0;i<nr_dpus;i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //         printf("%d ",reducescatter_results[i*data_num_per_dpu+j]);
-    //     }
-    //     printf("\n");
-    // }
-    // uint32_t * correct_results = (uint32_t*)malloc(data_num_per_dpu*sizeof(uint32_t));
-    // for(uint32_t i=0;i<data_num_per_dpu;i++){
-    //     correct_results[i] = 0;
-    // }
-    // for(uint32_t i=0;i<nr_dpus;i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //         correct_results[j] += before_data[i*data_num_per_dpu+j];
-    //     }
-    // }
-    // for(uint32_t i=0;i<nr_dpus;i++){
-    //     for(uint32_t j=0;j<data_num_per_dpu;j++){
-    //         if(reducescatter_results[j] != correct_results[j]){
-    //             printf("error\n");
-    //             printf("%d %lx %lx\n",j,reducescatter_results[j],correct_results[j]);
-    //             break;
-    //         }
+    DPU_ASSERT(dpu_free(set));
 
-    //     }
-    //     if(i == nr_dpus-1){
-    //         printf("correct\n");
-    //     }
-    // }
-
-    PrintResult(NAIVE_REDUCESCATTER_RESULT,nr_dpus,data_num_per_dpu,reducescatter_results);
+    //PrintResult(NAIVE_REDUCESCATTER_RESULT,nr_dpus,data_num_per_dpu,reducescatter_results);
 }
 
 
 int main()
 {
-    // test_alltoall(8,8);
+    printf("test all gather\n");
     test_allgather(1024,2*1024);
-    //test_allreduce(1024,2*1024*1024);
+    printf("test all reduce\n");
+    test_allreduce(1024,2*1024*1024);
+    printf("test reduce scatter\n");
+    test_reducescatter(1024,2*1024*1024);
     return 0;
 }

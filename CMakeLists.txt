@@ -53,8 +53,8 @@ else()
 endif()
 
 # Common compile flags for our libraries
-set( STRICT_COMPILE_FLAGS "-Wall  -Wextra -std=gnu11 -fopenmp" )
-set( CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${STRICT_COMPILE_FLAGS} ${COVERAGE_FLAGS} " )
+set( STRICT_COMPILE_FLAGS "-Wall  -Wextra  -std=gnu11  -fopenmp" )
+set( CMAKE_C_FLAGS  "  ${CMAKE_C_FLAGS} ${STRICT_COMPILE_FLAGS} ${COVERAGE_FLAGS} " )
 set( CMAKE_C_VISIBILITY_PRESET hidden )
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags")

@@ -26,7 +26,7 @@
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./dpu_user"
+#define DPU_BINARY_USER "./naive_comm/communication//dpu_user"
 #endif
 
 #define OUTPUT_FILE "/home/pimnic/ziyu/baseline/results/naive_alltoall.txt"
@@ -292,8 +292,8 @@ int test(uint32_t test_size,bool write_output){
     printf("time1 cost : %lf\n",1.0*d1/1000000/interval);
     printf("time2 cost : %lf\n",1.0*d2/1000000/interval);
     printf("time3 cost : %lf\n",1.0*d3/1000000/interval);
-    printf("%lf\n",1.0*sum/1000000/interval);
-    printf(" %lf  %lf  \n",1.0*nr_dpus*data_size_per_dpu/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*data_size_per_dpu/1024/1024/1024/1.0/d3*1000000000*interval);
+    printf("total time cost: %lf\n",1.0*sum/1000000/interval);
+    printf("bandwidth:  %lf  %lf  \n",1.0*nr_dpus*data_size_per_dpu/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*data_size_per_dpu/1024/1024/1024/1.0/d3*1000000000*interval);
     
     if(write_output){
         print_output(before_data, data_num_per_dpu);

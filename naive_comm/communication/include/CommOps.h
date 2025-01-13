@@ -77,5 +77,6 @@ void naive_reducescatter(struct dpu_set_t set, uint32_t total_data_size, uint32_
  * @param target_offset the byte offset from the DPU's MRAM address where to copy the data
  */
 void naive_alltoall(struct dpu_set_t set, uint32_t total_data_size, uint32_t start_offset,uint32_t target_offset);
+//! not use this function, use ../naive_alltoall/naive_alltoall.c instead
 
 #endif
