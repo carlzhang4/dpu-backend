@@ -313,7 +313,6 @@ void naive_reducescatter(struct dpu_set_t set, uint32_t total_data_size, uint32_
     }
 
     uint32_t segment_size = total_data_size/nr_dpus;
-    printf("segment_size %d\n",segment_size);
     //* transfer data from host to dpus
     uint32_t aligned_len_to_dpu = segment_size%8==0?segment_size:(segment_size)+(8-(segment_size)%8);
     DPU_FOREACH(set, dpu, i) {

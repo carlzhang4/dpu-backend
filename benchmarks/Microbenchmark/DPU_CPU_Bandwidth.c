@@ -30,7 +30,7 @@
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./example/DPU_CPU_Bandwidth_host"
+#define DPU_BINARY_USER "./benchmarks/Microbenchmark/DPU_CPU_Bandwidth_host"
 #endif
 
  

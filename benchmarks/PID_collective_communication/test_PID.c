@@ -82,7 +82,7 @@ void PrintResult(char* filename,uint32_t nr_dpus, uint32_t data_num_per_dpu, uin
 }
 
 
-int test(uint32_t data_num_per_dpu) {
+int test_alltoall(uint32_t data_num_per_dpu) {
     //getchar();
     struct dpu_set_t dpu, dpu_set;
     uint32_t each_dpu;
@@ -145,12 +145,13 @@ int test(uint32_t data_num_per_dpu) {
     printf("%lf\n",1.0*sum/1000000);
     //Receive the data for each DPU
     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, each_dpu, nr_dpus){
+        
         DPU_ASSERT(dpu_prepare_xfer(dpu, original_data+each_dpu*data_num_per_dpu));
     }
     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
 
     DPU_ASSERT(dpu_free(dpu_set));
-
+    free(original_data);
 
     return 0;
 }
@@ -224,7 +225,8 @@ int test_allgather(uint32_t data_num_per_dpu) {
     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu*nr_dpus, DPU_XFER_DEFAULT));
 
     DPU_ASSERT(dpu_free(dpu_set));
-
+    free(result_data);
+    free(original_data);
     //PrintResult(PID_ALLGATHER_RESULT,nr_dpus,data_num_per_dpu,result_data);
     return 0;
 } 
@@ -296,7 +298,8 @@ int test_allreduce(uint32_t data_num_per_dpu) {
 
     DPU_ASSERT(dpu_free(dpu_set));
 
-    
+    free(original_data);
+    free(result_data);
     //PrintResult(PID_ALLREDUCE_RESULT,nr_dpus,data_num_per_dpu,result_data);
 
     return 0;
@@ -363,8 +366,15 @@ int test_reducescatter(uint32_t data_num_per_dpu) {
     sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
     printf("%lf\n",1.0*sum/1000000);
 
-    DPU_ASSERT(dpu_free(dpu_set));
+    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, each_dpu, nr_dpus){
+        
+        DPU_ASSERT(dpu_prepare_xfer(dpu, original_data+each_dpu*data_num_per_dpu));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
 
+    DPU_ASSERT(dpu_free(dpu_set));
+    
+    free(original_data);
     //PrintResult(PID_REDUCESCATTER_RESULT,nr_dpus,data_num_per_dpu,original_data);
     return 0;
 } 
@@ -376,10 +386,11 @@ int main()
     test_allgather(2*1024);
     printf("test all reduce\n");
     test_allreduce(2*1024*1024);
-    printf("test all to all\n");
-    test(2*1024*1024);
+    
     printf("test reduce scatter\n");
     test_reducescatter(2*1024*1024);
+    printf("test all to all\n");
+    test_alltoall(2*1024*1024);
     
     return 0;
 }
