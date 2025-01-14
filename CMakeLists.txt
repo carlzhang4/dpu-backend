@@ -53,8 +53,8 @@ else()
 endif()
 
 # Common compile flags for our libraries
-set( STRICT_COMPILE_FLAGS "-Wall -Werror -Wextra -std=gnu11" )
-set( CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} ${STRICT_COMPILE_FLAGS} ${COVERAGE_FLAGS}" )
+set( STRICT_COMPILE_FLAGS "-Wall  -Wextra  -std=gnu11  -fopenmp" )
+set( CMAKE_C_FLAGS  "  ${CMAKE_C_FLAGS} ${STRICT_COMPILE_FLAGS} ${COVERAGE_FLAGS} " )
 set( CMAKE_C_VISIBILITY_PRESET hidden )
 
 SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--enable-new-dtags")
@@ -114,6 +114,7 @@ add_subdirectory(vpd)
 add_subdirectory(pimnic)
 
 add_subdirectory(example)
+add_subdirectory(benchmarks)
 
 add_optional_subdirectory(fsim)
 add_optional_subdirectory(casim)
@@ -184,3 +185,4 @@ if (DPU_INSTALL_SOURCES)
         PATTERN "tests" EXCLUDE
         )
 endif()
+

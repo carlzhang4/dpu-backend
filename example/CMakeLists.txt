@@ -67,6 +67,8 @@ if(ENABLE_DEBUG)
 	add_definitions("-g")
 endif()
 
+add_definitions("-D UINT32")
+
 add_executable(checksum_host ./checksum_host.c ${ALL_SOURCES} )
 target_include_directories( checksum_host PUBLIC ${INCLUDE_DIRECTORIES} )
 target_link_libraries( checksum_host dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
@@ -80,6 +82,8 @@ target_link_libraries( bf_checksum_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_
 target_compile_definitions(bf_checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(bf_checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(bf_checksum_host gen_files)
+
+
 
 #Device target
 set(input_file_checksum "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
@@ -100,8 +104,11 @@ add_custom_command(
   DEPENDS ${input_file_bf_checksum}
 )
 
+
+
+
 add_custom_target(
-  generate_output
+  generate_output_files
   ALL
   DEPENDS ${output_file_bf_checksum} ${output_file_checksum}
 )

@@ -8,6 +8,7 @@ cmake_policy(SET CMP0048 NEW)
 
 find_package(SSE)
 
+
 if(C_SSE2_COMPILES)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SSE2")
 endif()
@@ -19,6 +20,8 @@ else()
         message(FATAL_ERROR "The host toolchain does not support avx512f/avx512bw or clflushopt: x86 mappings can't work without those extensions.")
     endif()
 endif()
+
+
 
 set( INCLUDE_DIRECTORIES
         ../api/include/lowlevel
@@ -68,6 +71,7 @@ endif ()
 
 if ( ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^x86_64" )
 list ( APPEND HW_SOURCES src/mappings/xeon_sp/xeon_sp_translation.c )
+list ( APPEND HW_SOURCES src/mappings/xeon_sp/pid_comm.c )
 endif ()
 
 find_package(LibUdev REQUIRED)

@@ -142,9 +142,216 @@ struct dpu_region_address_translation {
         uint8_t channel_id,
         void *block_data,
         uint32_t block_size);
+
+
+    void (*trans_all_to_all_rg)(
+        void *base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_thread,
+        uint32_t thread_id
+    );
+
+    void (*trans_all_gather_rg)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t* dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t num_thread,
+        uint32_t thread_id
+    );
+
+    void (*trans_all_gather_rg_24)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t* dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t a_length
+    );
+
+    void (*trans_all_gather_rg_22)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t* dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t comm_axis_x,
+        uint32_t comm_axis_y,
+        uint32_t comm_axis_z,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst
+    );
+
+    void (*trans_all_reduce_rg)(
+        void **base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t *src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t iter_dst_a,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t num_iter_src,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t size,
+        uint32_t reduce_type,
+        uint32_t num_thread,
+        uint32_t thread_id
+    );
+
+    void (*trans_all_reduce_rg_24)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t *dst_rg_id,
+        uint32_t iter_dst_a,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t a_length,
+        uint32_t size
+    );
+
+    void (*trans_all_reduce_rg_22)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t *dst_rg_id,
+        uint32_t iter_dst_a,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t comm_axis_x,
+        uint32_t comm_axis_y,
+        uint32_t comm_axis_z,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t size
+    );
+
+    void (*trans_all_reduce_y_rg)(
+        void **base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t *src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t iter_dst_b,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t num_iter_src,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t size,
+        uint32_t reduce_type
+    );
+
+    void (*trans_reduce_scatter_cpu_rg)(
+        void **base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t *src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t num_iter_src,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t size,
+        uint32_t num_thread,
+        uint32_t thread_id
+    );
+
+    void (*trans_reduce_scatter_cpu_rg_24)(
+        void *base_region_addr_src,
+        void **base_region_addr_dst,
+        uint32_t src_rg_id,
+        uint32_t *dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t a_length,
+        uint32_t size
+    );
+
+    void (*trans_reduce_scatter_cpu_rg_22)(
+        void *base_region_addr_dst,
+        void **base_region_addr_src,
+        uint32_t dst_rg_id,
+        uint32_t* src_rg_id,
+        uint32_t src_start_offset,
+        uint32_t dst_start_offset,
+        uint32_t byte_length,
+        uint32_t comm_axis_x,
+        uint32_t comm_axis_y,
+        uint32_t comm_axis_z,
+        uint32_t communication_buffer_offset,
+        uint32_t num_iter_dst,
+        uint32_t size
+    );
+
+    void (*trans_reduce_scatter_cpu_y_rg)(
+        void **base_region_addr_src,
+        void *base_region_addr_dst,
+        uint32_t *src_rg_id,
+        uint32_t dst_rg_id,
+        uint32_t src_offset,
+        uint32_t dst_offset,
+        uint32_t length,
+        uint32_t num_iter_src,
+        uint32_t alltoall_comm_type,
+        uint32_t communication_buffer_offset,
+        uint32_t size
+    );
+    
 #ifdef __KERNEL__
     int (*mmap_hybrid)(struct dpu_region_address_translation *tr, struct file *filp, struct vm_area_struct *vma);
 #endif
 };
+
+
+//! PID_COMM
+void xeon_sp_trans_all_to_all_rg(void *base_region_addr_src, void *base_region_addr_dst, uint32_t src_rg_id, uint32_t dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t num_thread, uint32_t thread_id);
+
+void xeon_sp_trans_all_gather_rg(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t num_thread, uint32_t thread_id);
+void xeon_sp_trans_all_gather_rg_24(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t a_length);
+void xeon_sp_trans_all_gather_rg_22(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t comm_axis_x, uint32_t comm_axis_y, uint32_t comm_axis_z, uint32_t communication_buffer_offset, uint32_t num_iter_dst);
+
+void xeon_sp_trans_all_reduce_rg(void **base_region_addr_src, void *base_region_addr_dst, uint32_t* src_rg_id, uint32_t dst_rg_id, uint32_t iter_dst_a, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t num_iter_src, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size, uint32_t reduce_type, uint32_t num_thread, uint32_t thread_id);
+void xeon_sp_trans_all_reduce_rg_24(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t iter_dst_a, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t comm_type, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t a_length, uint32_t size);
+void xeon_sp_trans_all_reduce_rg_22(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t iter_dst_a, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t comm_axis_x, uint32_t comm_axis_y, uint32_t comm_axis_z, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t size);
+void xeon_sp_trans_all_reduce_y_rg(void **base_region_addr_src, void *base_region_addr_dst, uint32_t* src_rg_id, uint32_t dst_rg_id, uint32_t iter_dst_a, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t num_iter_src, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size, uint32_t reduce_type);
+void xeon_sp_trans_reduce_scatter_cpu_rg(void **base_region_addr_src, void *base_region_addr_dst, uint32_t* src_rg_id, uint32_t dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t num_iter_src, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size, uint32_t num_thread, uint32_t thread_id);
+void xeon_sp_trans_reduce_scatter_cpu_rg_24(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t a_length, uint32_t size);
+void xeon_sp_trans_reduce_scatter_cpu_rg_22(void *base_region_addr_src, void **base_region_addr_dst, uint32_t src_rg_id, uint32_t* dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t comm_axis_x, uint32_t comm_axis_y, uint32_t comm_axis_z, uint32_t communication_buffer_offset, uint32_t num_iter_dst, uint32_t size);
+void xeon_sp_trans_reduce_scatter_cpu_y_rg(void **base_region_addr_src, void *base_region_addr_dst, uint32_t* src_rg_id, uint32_t dst_rg_id, uint32_t src_offset, uint32_t dst_offset, uint32_t length, uint32_t num_iter_src, uint32_t alltoall_comm_type, uint32_t communication_buffer_offset, uint32_t size);
+
+
 
 #endif /* DPU_REGION_ADDRESS_TRANSLATION_INCLUDE_H */
