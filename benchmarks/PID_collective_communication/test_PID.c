@@ -6,7 +6,7 @@
 #include <pidcomm.h>
 #include <time.h>
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./example/test_host"
+#define DPU_BINARY_USER "./benchmarks/PID_collective_communication/test_PID_host"
 #endif
 
 #define PID_ALLTOALL_RESULT "/home/pimnic/ziyu/baseline/results/PIDComm_alltoall.txt"
@@ -362,11 +362,6 @@ int test_reducescatter(uint32_t data_num_per_dpu) {
     end_tsc = get_tscp();
     sum = 1.0*(end_tsc-beg_tsc)/ 2.1;
     printf("%lf\n",1.0*sum/1000000);
-    //Receive the data for each DPU
-    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, each_dpu, nr_dpus){
-        DPU_ASSERT(dpu_prepare_xfer(dpu, original_data+each_dpu*data_num_per_dpu));
-    }
-    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
 
     DPU_ASSERT(dpu_free(dpu_set));
 
@@ -381,9 +376,10 @@ int main()
     test_allgather(2*1024);
     printf("test all reduce\n");
     test_allreduce(2*1024*1024);
-    printf("test reduce scatter\n");
-    test_reducescatter(2*1024*1024);
     printf("test all to all\n");
     test(2*1024*1024);
+    printf("test reduce scatter\n");
+    test_reducescatter(2*1024*1024);
+    
     return 0;
 }

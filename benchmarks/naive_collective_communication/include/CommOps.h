@@ -31,14 +31,6 @@
 
 #define T uint32_t
 
-/**
- * @brief Gather primitive
- * @param set the dpuset to achieve this operation
- * @param total_data_size the number of bytes for each DPUs
- * @param start_offset the byte offset from the DPU's MRAM address where the data is copied
- */
-void* naive_gather(struct dpu_set_t set, uint32_t total_data_size, uint32_t start_offset);
-
 
 /**
  * @brief AllGather primitive
@@ -70,13 +62,12 @@ void naive_allreduce(struct dpu_set_t set, uint32_t total_data_size, uint32_t st
 void naive_reducescatter(struct dpu_set_t set, uint32_t total_data_size, uint32_t start_offset,uint32_t target_offset, uint32_t reduce_type);
 
 /**
- * @brief AlltoAll primitive
+ * @brief AllToAll primitive
  * @param set the dpuset to achieve this operation
  * @param total_data_size the number of bytes for each DPUs
  * @param start_offset the byte offset from the DPU's MRAM address where the data is copied
  * @param target_offset the byte offset from the DPU's MRAM address where to copy the data
  */
-void naive_alltoall(struct dpu_set_t set, uint32_t total_data_size, uint32_t start_offset,uint32_t target_offset);
-//! not use this function, use ../naive_alltoall/naive_alltoall.c instead
+void naive_alltoall(uint32_t dimension,uint32_t* axis_len,uint32_t* comm_axis,uint32_t num_comm_dpu,uint32_t* before_data, uint32_t* after_data,uint32_t data_size_per_dpu);
 
 #endif

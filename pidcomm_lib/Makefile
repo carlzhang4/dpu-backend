@@ -8,7 +8,7 @@ DPU_DIR7 := data_relocate_modified_reverse_clockwise
 DPU_DIR8 := data_relocate_reverse_clockwise_short
 
 HOST_DIR := host
-BUILDDIR := bin
+BUILDDIR := ../build/bin
 TYPE := UINT32
 NR_TASKLETS := 16
 NR_DPUS := 1024
@@ -83,53 +83,53 @@ ${DPU_TARGET7}: ${DPU_SOURCES7} ${COMMON_INCLUDES} ${CONF}
 ${DPU_TARGET8}: ${DPU_SOURCES8} ${COMMON_INCLUDES} ${CONF}
 	dpu-upmem-dpurte-clang ${DPU_FLAGS} -o $@ ${DPU_SOURCES8} #-L./lib
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_clockwise/data_relocate_clockwise.c -o bin/data_relocate_clockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_clockwise/data_relocate_clockwise.c -o ../build/bin/data_relocate_clockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_clockwise/data_relocate_clockwise.c -o bin/data_relocate_clockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_clockwise/data_relocate_clockwise.c -o ../build/bin/data_relocate_clockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_clockwise/data_relocate_clockwise.c -o bin/data_relocate_clockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_clockwise/data_relocate_clockwise.c -o ../build/bin/data_relocate_clockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o bin/data_relocate_clockwise_short
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o ../build/bin/data_relocate_clockwise_short
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o bin/data_relocate_clockwise_short_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o ../build/bin/data_relocate_clockwise_short_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o bin/data_relocate_clockwise_short_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_clockwise_short/data_relocate_clockwise_short.c -o ../build/bin/data_relocate_clockwise_short_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o bin/data_relocate_counterclockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o ../build/bin/data_relocate_counterclockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o bin/data_relocate_counterclockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o ../build/bin/data_relocate_counterclockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o bin/data_relocate_counterclockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_counterclockwise/data_relocate_counterclockwise.c -o ../build/bin/data_relocate_counterclockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o bin/data_relocate_incremental_counterclockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o ../build/bin/data_relocate_incremental_counterclockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o bin/data_relocate_incremental_counterclockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o ../build/bin/data_relocate_incremental_counterclockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o bin/data_relocate_incremental_counterclockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_incremental_counterclockwise/data_relocate_incremental_counterclockwise.c -o ../build/bin/data_relocate_incremental_counterclockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o bin/data_relocate_modified_clockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o ../build/bin/data_relocate_modified_clockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o bin/data_relocate_modified_clockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o ../build/bin/data_relocate_modified_clockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o bin/data_relocate_modified_clockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_modified_clockwise/data_relocate_modified_clockwise.c -o ../build/bin/data_relocate_modified_clockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o bin/data_relocate_modified_reverse_clockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o ../build/bin/data_relocate_modified_reverse_clockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o bin/data_relocate_modified_reverse_clockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o ../build/bin/data_relocate_modified_reverse_clockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o bin/data_relocate_modified_reverse_clockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_modified_reverse_clockwise/data_relocate_modified_reverse_clockwise.c -o ../build/bin/data_relocate_modified_reverse_clockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o bin/data_relocate_reverse_clockwise
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o ../build/bin/data_relocate_reverse_clockwise
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o bin/data_relocate_reverse_clockwise_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o ../build/bin/data_relocate_reverse_clockwise_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o bin/data_relocate_reverse_clockwise_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_reverse_clockwise/data_relocate_reverse_clockwise.c -o ../build/bin/data_relocate_reverse_clockwise_int8
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o bin/data_relocate_reverse_clockwise_short
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D UINT32 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o ../build/bin/data_relocate_reverse_clockwise_short
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o bin/data_relocate_reverse_clockwise_short_int32
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT32 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o ../build/bin/data_relocate_reverse_clockwise_short_int32
 
-	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o bin/data_relocate_reverse_clockwise_short_int8
+	dpu-upmem-dpurte-clang -g  -DNR_TASKLETS=${NR_TASKLETS} -D INT8 data_relocate_reverse_clockwise_short/data_relocate_reverse_clockwise_short.c -o ../build/bin/data_relocate_reverse_clockwise_short_int8
 
 clean:
 	$(RM) -r $(BUILDDIR)

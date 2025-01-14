@@ -76,19 +76,7 @@ target_compile_definitions(checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(checksum_host gen_files)
 
-add_executable(test_PID ./test.c ${ALL_SOURCES} )
-target_include_directories( test_PID PUBLIC ${INCLUDE_DIRECTORIES} )
-target_link_libraries( test_PID dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
-target_compile_definitions(test_PID PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(test_PID PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(test_PID gen_files)
 
-add_executable(DPU_CPU_Bandwidth ./DPU_CPU_Bandwidth.c ${ALL_SOURCES} )
-target_include_directories( DPU_CPU_Bandwidth PUBLIC ${INCLUDE_DIRECTORIES} )
-target_link_libraries( DPU_CPU_Bandwidth dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
-target_compile_definitions(DPU_CPU_Bandwidth PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(DPU_CPU_Bandwidth PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(DPU_CPU_Bandwidth gen_files)
 
 
 #Device target
@@ -102,30 +90,11 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_FILE}"
 )
 
-set(INPUT_DPU_CPU_Bandwidth_host "${CMAKE_CURRENT_SOURCE_DIR}/DPU_CPU_Bandwidth_host.c")
-set(OUTPUT_DPU_CPU_Bandwidth_host "DPU_CPU_Bandwidth_host")
 
-add_custom_command(
-  OUTPUT ${OUTPUT_DPU_CPU_Bandwidth_host}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_DPU_CPU_Bandwidth_host} -o ${OUTPUT_DPU_CPU_Bandwidth_host}
-  DEPENDS ${INPUT_DPU_CPU_Bandwidth_host}
-  COMMENT "Generating ${OUTPUT_DPU_CPU_Bandwidth_host}"
-)
 
-set(INPUT_test_host "${CMAKE_CURRENT_SOURCE_DIR}/test_host.c")
-set(OUTPUT_test_host "test_host")
-
-add_custom_command(
-  OUTPUT ${OUTPUT_test_host}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16  ${INPUT_test_host} -o ${OUTPUT_test_host}
-  DEPENDS ${INPUT_test_host}
-  COMMENT "Generating ${OUTPUT_test_host}"
-)
 
 add_custom_target(
   generate_output_files
   ALL
   DEPENDS ${OUTPUT_FILE}
-  DEPENDS ${OUTPUT_DPU_CPU_Bandwidth_host}
-  DEPENDS ${OUTPUT_test_host}
 )

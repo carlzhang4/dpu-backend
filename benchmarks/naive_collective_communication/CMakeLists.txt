@@ -60,7 +60,7 @@ set(SOURCES
         ../../ufi/src/ufi_runner.c
         )
 
-set(ALL_SOURCES ${SOURCES} ${COMMONS_SOURCES})
+set(ALL_SOURCES ${SOURCES} ${COMMONS_SOURCES} ./include/CommOps.c)
 
 if(ENABLE_DEBUG)
 	message(STATUS "Add -g for /example")
@@ -69,29 +69,31 @@ endif()
 
 add_definitions("-D UINT32")
 
-add_executable(naive_alltoall ./naive_alltoall.c ${ALL_SOURCES} )
-target_include_directories( naive_alltoall PUBLIC ${INCLUDE_DIRECTORIES} )
-target_link_libraries( naive_alltoall dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
-target_compile_definitions(naive_alltoall PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(naive_alltoall PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(naive_alltoall gen_files)
+add_executable(test_naive ./test_naive.c ${ALL_SOURCES} )
+target_include_directories( test_naive PUBLIC ${INCLUDE_DIRECTORIES}  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries( test_naive dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(test_naive PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(test_naive PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(test_naive gen_files)
 
 
 
 
 #Device target
-set(INPUT_FILE_DPU "${CMAKE_CURRENT_SOURCE_DIR}/dpu_user.c")
-set(OUTPUT_FILE_DPU "dpu_user")
+
+
+set(INPUT_test_host "${CMAKE_CURRENT_SOURCE_DIR}/test_naive_host.c")
+set(OUTPUT_test_host "test_naive_host")
 
 add_custom_command(
-  OUTPUT ${OUTPUT_FILE_DPU}
-  COMMAND dpu-upmem-dpurte-clang ${INPUT_FILE_DPU} -o ${OUTPUT_FILE_DPU}
-  DEPENDS ${INPUT_FILE_DPU}
-  COMMENT "Generating ${OUTPUT_FILE_DPU}"
+  OUTPUT ${OUTPUT_test_host}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16  ${INPUT_test_host} -o ${OUTPUT_test_host}
+  DEPENDS ${INPUT_test_host}
+  COMMENT "Generating ${OUTPUT_test_host}"
 )
 
 add_custom_target(
-  generate_output
+  generate_output_files_naive
   ALL
-  DEPENDS ${OUTPUT_FILE_DPU}
+  DEPENDS ${OUTPUT_test_host}
 )

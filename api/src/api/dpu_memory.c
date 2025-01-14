@@ -824,83 +824,83 @@ dpu_push_xfer_symbol(struct dpu_set_t dpu_set,
 
 /*PID-Comm*/
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE
-#define DPU_BINARY_RELOCATE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_clockwise"
+#define DPU_BINARY_RELOCATE_CLOCKWISE "../build/bin/data_relocate_clockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_clockwise_int8"
+#define DPU_BINARY_RELOCATE_CLOCKWISE_INT8 "../build/bin/data_relocate_clockwise_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_clockwise_int32"
+#define DPU_BINARY_RELOCATE_CLOCKWISE_INT32 "../build/bin/data_relocate_clockwise_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_reverse_clockwise"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE "../build/bin/data_relocate_reverse_clockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_int8"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT8 "../build/bin/data_relocate_reverse_clockwise_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_int32"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_INT32 "../build/bin/data_relocate_reverse_clockwise_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE
-#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE "../pidcomm_lib/bin/data_relocate_counterclockwise"
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE "../build/bin/data_relocate_counterclockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_counterclockwise_int8"
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT8 "../build/bin/data_relocate_counterclockwise_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_counterclockwise_int32"
+#define DPU_BINARY_RELOCATE_COUNTERCLOCKWISE_INT32 "../build/bin/data_relocate_counterclockwise_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE
-#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise"
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE "../build/bin/data_relocate_incremental_counterclockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise_int8"
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT8 "../build/bin/data_relocate_incremental_counterclockwise_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_incremental_counterclockwise_int32"
+#define DPU_BINARY_RELOCATE_INCREMENTAL_COUNTERCLOCKWISE_INT32 "../build/bin/data_relocate_incremental_counterclockwise_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE
-#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE "../pidcomm_lib/bin/data_relocate_modified_clockwise"
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE "../build/bin/data_relocate_modified_clockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_modified_clockwise_int8"
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT8 "../build/bin/data_relocate_modified_clockwise_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_modified_clockwise_int32"
+#define DPU_BINARY_RELOCATE_MODIFIED_CLOCKWISE_INT32 "../build/bin/data_relocate_modified_clockwise_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT
-#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT "../pidcomm_lib/bin/data_relocate_clockwise_short"
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT "../build/bin/data_relocate_clockwise_short"
 #endif
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT8
-#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT8 "../pidcomm_lib/bin/data_relocate_clockwise_short_int8"
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT8 "../build/bin/data_relocate_clockwise_short_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT32
-#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT32 "../pidcomm_lib/bin/data_relocate_clockwise_short_int32"
+#define DPU_BINARY_RELOCATE_CLOCKWISE_SHORT_INT32 "../build/bin/data_relocate_clockwise_short_int32"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE
-#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE "../build/bin/data_relocate_modified_reverse_clockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT8
-#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT8 "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT8 "../build/bin/data_relocate_modified_reverse_clockwise"
 #endif
 #ifndef DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT32
-#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT32 "../pidcomm_lib/bin/data_relocate_modified_reverse_clockwise"
+#define DPU_BINARY_RELOCATE_MODIFIED_REVERSE_CLOCKWISE_INT32 "../build/bin/data_relocate_modified_reverse_clockwise"
 #endif
 
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT "../build/bin/data_relocate_reverse_clockwise_short"
 #endif
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT8
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT8 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short_int8"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT8 "../build/bin/data_relocate_reverse_clockwise_short_int8"
 #endif
 #ifndef DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT32
-#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT32 "../pidcomm_lib/bin/data_relocate_reverse_clockwise_short_int32"
+#define DPU_BINARY_RELOCATE_REVERSE_CLOCKWISE_SHORT_INT32 "../build/bin/data_relocate_reverse_clockwise_short_int32"
 #endif
 
 
