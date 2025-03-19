@@ -161,7 +161,7 @@ void roce_init(NetParam &net_param, int num_contexts) {
 	struct ibv_port_attr port_attr;
 	assert(ibv_query_port(context, net_param.ib_port, &port_attr) == 0);
 	LOG_I("%-20s : %s", "Line Layer", link_layer_str(port_attr.link_layer));
-	// assert(port_attr.state == IBV_PORT_ACTIVE);
+	assert(port_attr.state == IBV_PORT_ACTIVE);
 	struct ibv_device_attr attr;
 	assert(ibv_query_device(context, &attr) == 0);
 	LOG_I("%-20s : %d", "Max Outreads", attr.max_qp_rd_atom);
@@ -176,8 +176,7 @@ void roce_init(NetParam &net_param, int num_contexts) {
 	srand48(getpid() * time(NULL));
 }
 
-QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct PingPongInfo *info) {
-	static int context_index = 0;
+QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct PingPongInfo *info, int context_index) {
 	assert(context_index < net_param.num_contexts);
 	QpHandler *qp_handler;
 	ALLOCATE(qp_handler, QpHandler, 1);
@@ -187,11 +186,14 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	uint32_t max_inline_size = 0;
 
 	int num_wrs = net_param.batch_size != 0 ? net_param.batch_size : 1;
-	int num_sges = num_wrs * 1;
+	int num_sges_per_wr = net_param.sge_per_wr != 0 ? net_param.sge_per_wr : 1;
+	int num_sges = num_wrs * num_sges_per_wr;
 	struct ibv_sge *send_sge_list;
 	struct ibv_sge *recv_sge_list;
 	struct ibv_send_wr *send_wr;
+	struct ibv_send_wr *send_bar_wr;
 	struct ibv_recv_wr *recv_wr;
+	struct ibv_recv_wr *recv_bar_wr;
 
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
@@ -206,7 +208,9 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	ALLOCATE(send_sge_list, struct ibv_sge, num_sges);
 	ALLOCATE(recv_sge_list, struct ibv_sge, num_sges);
 	ALLOCATE(send_wr, struct ibv_send_wr, num_wrs);
+	ALLOCATE(send_bar_wr, struct ibv_send_wr, 1);
 	ALLOCATE(recv_wr, struct ibv_recv_wr, num_wrs);
+	ALLOCATE(recv_bar_wr, struct ibv_recv_wr, 1);
 
 	//check valid mem
 	assert(size > static_cast<size_t>(net_param.page_size));
@@ -225,9 +229,9 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	attr.recv_cq = recv_cq;
 	attr.cap.max_inline_data = max_inline_size;
 	attr.cap.max_send_wr = tx_depth;
-	attr.cap.max_send_sge = num_sges;
+	attr.cap.max_send_sge = num_sges_per_wr;
 	attr.cap.max_recv_wr = rx_depth;
-	attr.cap.max_recv_sge = num_sges;
+	attr.cap.max_recv_sge = num_sges_per_wr;
 	attr.qp_type = IBV_QPT_RC;
 	qp = ibv_create_qp(pd, &attr);
 	if (qp == NULL && errno == ENOMEM) {
@@ -259,6 +263,7 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	info->rkey = mr->rkey;
 	info->out_reads = max_out_reads;
 	info->vaddr = reinterpret_cast<uintptr_t>(buf);
+	info->mtu = net_param.cur_mtu;
 	memcpy(info->gid.raw, temp_gid.raw, 16);
 
 	qp_handler->buf = reinterpret_cast<size_t> (buf);
@@ -271,33 +276,36 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	qp_handler->send_sge_list = send_sge_list;
 	qp_handler->recv_sge_list = recv_sge_list;
 	qp_handler->send_wr = send_wr;
+	qp_handler->send_bar_wr = send_bar_wr;
 	qp_handler->recv_wr = recv_wr;
+	qp_handler->recv_bar_wr = recv_bar_wr;
 	qp_handler->num_sges = num_sges;
+	qp_handler->num_sges_per_wr = num_sges_per_wr;
 	qp_handler->num_wrs = num_wrs;
 	qp_handler->tx_depth = tx_depth;
 	qp_handler->rx_depth = rx_depth;
 
-	context_index++;
-
 	return qp_handler;
 }
 
-QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct PingPongInfo *info) {
-	static int context_index = 0;
+QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct PingPongInfo *info, int context_index) {
 	assert(context_index < net_param.num_contexts);
 	QpHandler *qp_handler;
 	ALLOCATE(qp_handler, QpHandler, 1);
-	int max_out_reads = 1;
+	int max_out_reads = 16;
 	int tx_depth = 128;
 	int rx_depth = 512;
 	uint32_t max_inline_size = 0;
 
 	int num_wrs = net_param.batch_size != 0 ? net_param.batch_size : 1;
-	int num_sges = num_wrs * 1;
+	int num_sges_per_wr = net_param.sge_per_wr != 0 ? net_param.sge_per_wr : 1;
+	int num_sges = num_wrs * num_sges_per_wr;
 	struct ibv_sge *send_sge_list;
 	struct ibv_sge *recv_sge_list;
 	struct ibv_send_wr *send_wr;
+	struct ibv_send_wr *send_bar_wr;
 	struct ibv_recv_wr *recv_wr;
+	struct ibv_recv_wr *recv_bar_wr;
 
 	struct ibv_pd *pd;
 	struct ibv_mr *mr;
@@ -312,7 +320,9 @@ QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct Pin
 	ALLOCATE(send_sge_list, struct ibv_sge, num_sges);
 	ALLOCATE(recv_sge_list, struct ibv_sge, num_sges);
 	ALLOCATE(send_wr, struct ibv_send_wr, num_wrs);
+	ALLOCATE(send_bar_wr, struct ibv_send_wr, 1);
 	ALLOCATE(recv_wr, struct ibv_recv_wr, num_wrs);
+	ALLOCATE(recv_bar_wr, struct ibv_recv_wr, 1);
 
 	//check valid mem
 	assert(resource->size > static_cast<size_t>(net_param.page_size));
@@ -338,9 +348,9 @@ QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct Pin
 	attr.recv_cq = recv_cq;
 	attr.cap.max_inline_data = max_inline_size;
 	attr.cap.max_send_wr = tx_depth;
-	attr.cap.max_send_sge = num_sges;
+	attr.cap.max_send_sge = num_sges_per_wr;
 	attr.cap.max_recv_wr = rx_depth;
-	attr.cap.max_recv_sge = num_sges;
+	attr.cap.max_recv_sge = num_sges_per_wr;
 	attr.qp_type = IBV_QPT_RC;
 	qp = ibv_create_qp(pd, &attr);
 	if (qp == NULL && errno == ENOMEM) {
@@ -357,7 +367,7 @@ QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct Pin
 	attr_qp.qp_state = IBV_QPS_INIT;
 	attr_qp.pkey_index = 0;
 	attr_qp.port_num = net_param.ib_port;
-	attr_qp.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE;//for send
+	attr_qp.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ;//for send
 	assert(ibv_modify_qp(qp, &attr_qp, flags) == 0);
 
 	//setup connection
@@ -384,8 +394,11 @@ QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct Pin
 	qp_handler->send_sge_list = send_sge_list;
 	qp_handler->recv_sge_list = recv_sge_list;
 	qp_handler->send_wr = send_wr;
+	qp_handler->send_bar_wr = send_bar_wr;
 	qp_handler->recv_wr = recv_wr;
+	qp_handler->recv_bar_wr = recv_bar_wr;
 	qp_handler->num_sges = num_sges;
+	qp_handler->num_sges_per_wr = num_sges_per_wr;
 	qp_handler->num_wrs = num_wrs;
 	qp_handler->tx_depth = tx_depth;
 	qp_handler->rx_depth = rx_depth;
@@ -397,7 +410,7 @@ QpHandler *create_qp_rc(NetParam &net_param, vhca_resource *resource, struct Pin
 
 void init_wr_base_send_recv(QpHandler &qp_handler) {
 	//send
-	assert(qp_handler.num_wrs == qp_handler.num_sges);
+	assert(qp_handler.num_wrs * qp_handler.num_sges_per_wr == qp_handler.num_sges);
 	memset(qp_handler.send_wr, 0, sizeof(struct ibv_send_wr) * qp_handler.num_wrs);
 	ibv_send_wr *send_wr = qp_handler.send_wr;
 	ibv_sge *send_sge_list = qp_handler.send_sge_list;
@@ -405,8 +418,8 @@ void init_wr_base_send_recv(QpHandler &qp_handler) {
 	for (int i = 0;i < qp_handler.num_wrs;i++) {
 		send_sge_list[i].addr = qp_handler.buf;
 		send_sge_list[i].lkey = qp_handler.mr->lkey;
-		send_wr[i].sg_list = send_sge_list + i;
-		send_wr[i].num_sge = 1;
+		send_wr[i].sg_list = send_sge_list + i * qp_handler.num_sges_per_wr;
+		send_wr[i].num_sge = qp_handler.num_sges_per_wr;
 		send_wr[i].wr_id = 1000;//todo
 		send_wr[i].next = NULL;
 		send_wr[i].send_flags = IBV_SEND_SIGNALED;
@@ -424,8 +437,51 @@ void init_wr_base_send_recv(QpHandler &qp_handler) {
 	for (int i = 0;i < qp_handler.num_wrs;i++) {
 		recv_sge_list[i].addr = qp_handler.buf;
 		recv_sge_list[i].lkey = qp_handler.mr->lkey;
-		recv_wr[i].sg_list = recv_sge_list + i;
-		recv_wr[i].num_sge = 1;
+		recv_wr[i].sg_list = recv_sge_list + i * qp_handler.num_sges_per_wr;
+		recv_wr[i].num_sge = qp_handler.num_sges_per_wr;
+		recv_wr[i].wr_id = 1001;//todo
+		recv_wr[i].next = NULL;//todo
+		if (i > 0) {
+			recv_wr[i - 1].next = &recv_wr[i];
+		}
+	}
+
+}
+
+void init_wr_base_write_with_imm(QpHandler &qp_handler) {
+	//send
+	assert(qp_handler.num_wrs * qp_handler.num_sges_per_wr == qp_handler.num_sges);
+	memset(qp_handler.send_wr, 0, sizeof(struct ibv_send_wr) * qp_handler.num_wrs);
+	ibv_send_wr *send_wr = qp_handler.send_wr;
+	ibv_sge *send_sge_list = qp_handler.send_sge_list;
+
+	for (int i = 0;i < qp_handler.num_wrs;i++) {
+		send_sge_list[i].addr = qp_handler.buf;
+		send_sge_list[i].lkey = qp_handler.mr->lkey;
+		send_wr[i].wr.rdma.remote_addr = qp_handler.remote_buf;
+		send_wr[i].wr.rdma.rkey = qp_handler.remote_rkey;
+
+		send_wr[i].sg_list = send_sge_list + i * qp_handler.num_sges_per_wr;
+		send_wr[i].num_sge = qp_handler.num_sges_per_wr;
+		send_wr[i].wr_id = 0;//todo
+		send_wr[i].next = NULL;
+		send_wr[i].send_flags = IBV_SEND_SIGNALED;
+		send_wr[i].opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
+		if (i > 0) {
+			send_wr[i - 1].next = &send_wr[i];
+		}
+	}
+
+	//recv
+	memset(qp_handler.recv_wr, 0, sizeof(struct ibv_recv_wr) * qp_handler.num_wrs);
+	ibv_recv_wr *recv_wr = qp_handler.recv_wr;
+	ibv_sge *recv_sge_list = qp_handler.recv_sge_list;
+
+	for (int i = 0;i < qp_handler.num_wrs;i++) {
+		recv_sge_list[i].addr = qp_handler.buf;
+		recv_sge_list[i].lkey = qp_handler.mr->lkey;
+		recv_wr[i].sg_list = recv_sge_list + i * qp_handler.num_sges_per_wr;
+		recv_wr[i].num_sge = qp_handler.num_sges_per_wr;
 		recv_wr[i].wr_id = 1001;//todo
 		recv_wr[i].next = NULL;//todo
 		if (i > 0) {
@@ -437,7 +493,7 @@ void init_wr_base_send_recv(QpHandler &qp_handler) {
 
 void init_wr_base_write(QpHandler &qp_handler) {
 	//write
-	assert(qp_handler.num_wrs == qp_handler.num_sges);
+	assert(qp_handler.num_wrs * qp_handler.num_sges_per_wr == qp_handler.num_sges);
 	memset(qp_handler.send_wr, 0, sizeof(struct ibv_send_wr) * qp_handler.num_wrs);
 	ibv_send_wr *send_wr = qp_handler.send_wr;
 	ibv_sge *send_sge_list = qp_handler.send_sge_list;
@@ -448,8 +504,8 @@ void init_wr_base_write(QpHandler &qp_handler) {
 		send_wr[i].wr.rdma.remote_addr = qp_handler.remote_buf;
 		send_wr[i].wr.rdma.rkey = qp_handler.remote_rkey;
 
-		send_wr[i].sg_list = send_sge_list + i;
-		send_wr[i].num_sge = 1;
+		send_wr[i].sg_list = send_sge_list + i * qp_handler.num_sges_per_wr;
+		send_wr[i].num_sge = qp_handler.num_sges_per_wr;
 		send_wr[i].wr_id = 0;//todo
 		send_wr[i].next = NULL;
 		send_wr[i].send_flags = IBV_SEND_SIGNALED;
@@ -475,7 +531,7 @@ void connect_qp_rc(NetParam &net_param, QpHandler &qp_handler, struct PingPongIn
 	attr.ah_attr.grh.traffic_class = 0;
 
 	//UD does not need below code
-	attr.path_mtu = net_param.cur_mtu;
+	attr.path_mtu = static_cast<enum ibv_mtu>(min(remote_info->mtu, local_info->mtu));
 	attr.dest_qp_num = remote_info->qpn;
 	attr.rq_psn = remote_info->psn;
 	flags |= (IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_DEST_QPN | IBV_QP_RQ_PSN);
@@ -510,7 +566,9 @@ void connect_qp_rc(NetParam &net_param, QpHandler &qp_handler, struct PingPongIn
 	qp_handler.remote_buf = remote_info->vaddr;
 	qp_handler.remote_rkey = remote_info->rkey;
 
-	init_wr_base_send_recv(qp_handler);
+	 //init_wr_base_send_recv(qp_handler);
+	 init_wr_base_write_with_imm(qp_handler);
+	//init_wr_base_write(qp_handler);
 }
 
 void print_pingpong_info(struct PingPongInfo *info) {
@@ -536,31 +594,38 @@ void post_send(QpHandler &qp_handler, size_t offset, int length) {
 	}
 	qp_handler.send_wr->wr_id = offset;
 	qp_handler.send_wr->next = NULL;
-	
+	qp_handler.send_wr->wr.rdma.remote_addr = qp_handler.remote_buf + offset;
+
 	// fuck https://github.com/linux-rdma/rdma-core/blob/6cd09097ad2eebde9a7fa3d3bb09a2cea6e3c2d6/providers/rxe/rxe.c#L1665-L1666
-	assert(ibv_post_send(qp_handler.qp, &qp_handler.send_wr[0], &qp_handler.send_bar_wr) == 0);
+	assert(ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr) == 0);
 	// qp_handler.send_wr[0].send_flags = IBV_SEND_SIGNALED;
 	// qp_handler.send_wr[0].wr_id = 0;
 }
 
-void post_send_batch(QpHandler &qp_handler, int batch_size, size_t offset, int length) {
+// 务必注意这函数里面已经step过了
+void post_send_batch(QpHandler &qp_handler, int batch_size, OffsetHandler &handler, int length) {
 	assert(batch_size <= qp_handler.num_wrs);
 	for (int i = 0;i < batch_size;i++) {
-		qp_handler.send_sge_list[i].addr = qp_handler.buf + offset;
+		qp_handler.send_sge_list[i].addr = qp_handler.buf + handler.offset();
 		qp_handler.send_sge_list[i].length = length;
 		if (length <= qp_handler.max_inline_size) {
 			qp_handler.send_wr[i].send_flags |= IBV_SEND_INLINE;
 		}
-		qp_handler.send_wr[i].wr_id = offset;
+		qp_handler.send_wr[i].wr_id = handler.offset();
 		qp_handler.send_wr[i].next = NULL;
+		qp_handler.send_wr[i].wr.rdma.remote_addr = qp_handler.remote_buf + handler.offset();
+		if (handler.index() % SEND_CQ_BATCH == SEND_CQ_BATCH - 1) {
+			qp_handler.send_wr[i].send_flags = IBV_SEND_SIGNALED;
+		} else {
+			qp_handler.send_wr[i].send_flags = 0;
+		}
 		if (i > 0) {
 			qp_handler.send_wr[i - 1].next = &qp_handler.send_wr[i];
 		}
+
+		handler.step();
 	}
-	int res = ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr);
-	if (res != 0) {
-		LOG_E("post_send error %d", res);
-	}
+	assert(ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr) == 0);
 }
 
 void post_recv(QpHandler &qp_handler, size_t offset, int length) {
@@ -569,7 +634,23 @@ void post_recv(QpHandler &qp_handler, size_t offset, int length) {
 	qp_handler.recv_wr->wr_id = offset;
 	qp_handler.recv_wr->next = NULL;
 	// fuck https://github.com/linux-rdma/rdma-core/blob/6cd09097ad2eebde9a7fa3d3bb09a2cea6e3c2d6/providers/rxe/rxe.c#L1665-L1666
-	assert(ibv_post_recv(qp_handler.qp, &qp_handler.recv_wr[0], &qp_handler.recv_bar_wr) == 0);
+	assert(ibv_post_recv(qp_handler.qp, qp_handler.recv_wr, &qp_handler.recv_bar_wr) == 0);
+}
+
+// 务必注意这函数里面已经step过了
+void post_recv_batch(QpHandler &qp_handler, int batch_size, OffsetHandler &handler, int length) {
+	assert(batch_size <= qp_handler.num_wrs);
+	for (int i = 0;i < batch_size;i++) {
+		qp_handler.recv_sge_list[i].addr = qp_handler.buf + handler.offset();
+		qp_handler.recv_sge_list[i].length = length;
+		qp_handler.recv_wr[i].wr_id = handler.offset();
+		qp_handler.recv_wr[i].next = NULL;
+		if (i > 0) {
+			qp_handler.recv_wr[i - 1].next = &qp_handler.recv_wr[i];
+		}
+		handler.step();
+	}
+	assert(ibv_post_recv(qp_handler.qp, qp_handler.recv_wr, &qp_handler.recv_bar_wr) == 0);
 }
 
 int poll_send_cq(QpHandler &qp_handler, struct ibv_wc *wc) {

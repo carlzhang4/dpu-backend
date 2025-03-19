@@ -115,6 +115,7 @@ add_subdirectory(pimnic)
 
 add_subdirectory(example)
 add_subdirectory(benchmarks)
+#add_subdirectory(libr_test)
 
 add_optional_subdirectory(fsim)
 add_optional_subdirectory(casim)

@@ -2,3 +2,4 @@
 add_subdirectory(naive_collective_communication)
 add_subdirectory(PID_collective_communication)
 add_subdirectory(Microbenchmark)
+add_subdirectory(baseline)
