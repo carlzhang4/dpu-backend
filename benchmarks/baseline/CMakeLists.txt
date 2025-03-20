@@ -1,18 +1,18 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(libr)
+
 
 # add_compile_options(-g -o3 -fcoroutines -std=c++20 -static)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_CXX_STANDARD 20)
+# set(CMAKE_CXX_STANDARD_REQUIRED True)
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17 -Wall")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast -Wno-unused-function -Wno-missing-braces")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-address-of-packed-member -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17 -Wall")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-old-style-cast -Wno-unused-function -Wno-missing-braces")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-address-of-packed-member -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations")
 
 
 find_package(Threads REQUIRED)
@@ -104,12 +104,13 @@ set(LIBRARIES ${LIBRARIES} ibverbs pthread numa gflags  mlx5)
 
 
 
-add_executable(baseline_latency ${SRCS} ./baseline_latency.cpp ${ALL_DPU_SOURCES})   #* addition
+add_executable(baseline_latency  ./baseline_latency.cpp ${ALL_DPU_SOURCES} ${SRCS})   #* addition
 
 target_include_directories(baseline_latency PUBLIC ${INCLUDE_DIRECTORIES} )     #* addition
-target_link_libraries( baseline_latency ${LIBRARIES} dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_link_libraries(baseline_latency  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
 target_compile_definitions(baseline_latency PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-
+set_target_properties(baseline_latency PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(baseline_latency gen_files)
 
 #Device target
 set(INPUT_baseline_latency_host "${CMAKE_CURRENT_SOURCE_DIR}/baseline_latency_host.c")

@@ -9,36 +9,47 @@
 #include <queue> 
 #include <fstream>
 #include "libr.hpp"
-#include <dpu.h>
+
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+extern "C" {
+#include <dpu.h>
 #include <dpu_types.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-#include <unistd.h>
 #include <dpu_error.h>
 #include <dpu_management.h>
 #include <dpu_program.h>
 
+
+}
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <x86intrin.h>
 #include <immintrin.h>
 #include <sys/sysinfo.h>
 #include <getopt.h>
 #include <sys/time.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
 #define DPU_BINARY_USER "./benchmarks/baseline/baseline_latency_host"
 #endif
+
+
+#define DPU_NUM 8
+#define TOTAL_DPU_MEM_SIZE 256*1024*1024
+
 
 uint64_t get_tscp(void)
 {
@@ -64,126 +75,245 @@ int GID_INDEX;
 int NUMA_NODE;
 int BATCH_SIZE = 1;
 int OUTSTANDING = 64;
-std::atomic<bool> stop_flag = false;
-std::atomic<double> total_bw = 0;
-void ctrl_c_handler(int) { stop_flag = true; }
+
 
 // hdr_histogram *latency_hist = nullptr;
 double scale_value = 10;
 
-void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops) {
-	wait_scheduling(thread_index, IO_LOCK);
-	(void)buf;
-	TimeUtil global_timer;
+// void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops, NetParam net_param) {
+// 	wait_scheduling(thread_index, IO_LOCK);
+// 	(void)buf;
+// 	TimeUtil global_timer;
 
+// 	int ne_recv;
+// 	struct ibv_wc *wc_recv = NULL;
+// 	ALLOCATE(wc_recv, struct ibv_wc, CTX_POLL_BATCH);
+
+// 	OffsetHandler recv(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
+// 	OffsetHandler recv_comp(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
+
+// 	size_t rx_depth = handler->rx_depth;
+
+// 	for (size_t i = 0; i < min(size_t(rx_depth), ops);i++) {
+// 		post_recv(*handler, recv.offset(), PACK_SIZE);
+// 		recv.step();
+// 	}
+// 	int done = 0;
+
+// 	while (!done && !stop_flag) {
+// 		ne_recv = poll_recv_cq(*handler, wc_recv);
+// 		if (ne_recv != 0) {
+// 			global_timer.start_once();
+// 		}
+
+// 		for (int i = 0;i < ne_recv;i++) {
+// 			if (recv.index() < ops) {
+// 				post_recv(*handler, recv.offset(), PACK_SIZE);
+// 				recv.step();
+// 			}
+// 			assert(wc_recv[i].status == IBV_WC_SUCCESS);
+// 			assert(wc_recv[i].byte_len == static_cast<uint32_t>(PACK_SIZE));
+// 			recv_comp.step();
+// 		}
+
+// 		if (recv_comp.index() >= ops) {
+// 			done = 1;
+// 		}
+// 	}
+// 	global_timer.end();
+// 	double duration = global_timer.get_seconds();
+// 	double speed = 8.0 * ops * PACK_SIZE / 1000 / 1000 / 1000 / duration;
+// 	std:: string s1(reinterpret_cast<char *>(buf), 20);
+// 	std::cout << " result buffer: " << s1 << std::endl;
+// 	char* buf_send = (char*)malloc(20);
+// 	memcpy(buf_send, "thanks for connect", 20);
+// 	int bytes_sent = send(net_param.sockfd[1], buf_send, 20, 0);
+// 	if (bytes_sent < 0) {
+// 		perror("send");
+// 		std::cout << "error infor: " << strerror(errno) << std::endl;
+// 	}else {
+// 		std::cout << "send message "<< bytes_sent<<" bytes to client"<< std::endl;
+// 	}
+// 	std::lock_guard<std::mutex> guard(IO_LOCK);
+// 	total_bw = total_bw + speed;
+// 	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
+
+// 	free(wc_recv);
+// }
+
+// void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+// 	struct dpu_set_t set,dpu;
+// 	sleep(2);
+// 	// assert(latency_hist);
+// 	wait_scheduling(thread_index, IO_LOCK);
+
+
+// 	TimeUtil global_timer;
+// 	std::vector<size_t>timers(128);
+// 	size_t timer_head = 0, timer_tail = 0;
+// 	int ne_send;
+// 	struct ibv_wc *wc_send = NULL;
+// 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	
+
+// 	OffsetHandler send(NUM_PACK, PACK_SIZE, 0);
+// 	OffsetHandler send_comp(NUM_PACK, PACK_SIZE, 0);
+
+// 	size_t tx_depth = OUTSTANDING;//handler->tx_depth;
+// 	for (size_t i = 0; i < min(tx_depth, ops);i++) {
+// 		post_send(*handler, send.offset(), PACK_SIZE);
+// 		timers[timer_head] = get_tsc();
+// 		timer_head = (timer_head + 1) % 128;
+// 		send.step();
+// 	}
+// 	while (send_comp.index() < ops && !stop_flag) {
+// 		ne_send = poll_send_cq(*handler, wc_send);
+// 		if (ne_send != 0) {
+// 			global_timer.start_once();
+// 		}
+// 		for (int i = 0;i < ne_send;i++) {
+// 			assert(wc_send[i].status == IBV_WC_SUCCESS);
+// 			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
+// 			timer_tail = (timer_tail + 1) % 128;
+// 			send_comp.step();
+// 		}
+// 		if (send.index() < ops && send.index() - send_comp.index() < tx_depth) {
+// 			post_send(*handler, send.offset(), PACK_SIZE);
+// 			timers[timer_head] = get_tsc();
+// 			timer_head = (timer_head + 1) % 128;
+// 			send.step();
+// 		}
+// 	}
+// 	while (send_comp.index() < send.index()) {
+// 		ne_send = poll_send_cq(*handler, wc_send);
+// 		for (int i = 0;i < ne_send;i++) {
+// 			assert(wc_send[i].status == IBV_WC_SUCCESS);
+// 			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
+// 			timer_tail = (timer_tail + 1) % 128;
+// 			send_comp.step();
+// 		}
+// 	}
+// 	global_timer.end();
+// 	double duration = global_timer.get_seconds();
+// 	double speed = 8.0 * send_comp.index() * PACK_SIZE / 1000 / 1000 / 1000 / duration;
+
+// 	char* buf_recv = (char*)malloc(20);
+// 	int err= recv(net_param.sockfd[0], buf_recv, 20, 0);
+// 	if (err < 0) {
+// 		perror("recv");
+// 		std::cout << "error infor: " << strerror(errno) << std::endl;
+// 	}
+// 	std::cout << "recv message from server: " << buf_recv << std::endl;
+	
+// 	std::lock_guard<std::mutex> guard(IO_LOCK);
+// 	total_bw = total_bw + speed;
+// 	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
+
+// 	free(wc_send);
+// }
+
+void sub_latency_server(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+	struct dpu_set_t set;
+	struct dpu_set_t dpu;
+	uint32_t each_dpu;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+    DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	int ne_recv;
 	struct ibv_wc *wc_recv = NULL;
 	ALLOCATE(wc_recv, struct ibv_wc, CTX_POLL_BATCH);
+	uint64_t t1,t2;
 
-	OffsetHandler recv(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
-	OffsetHandler recv_comp(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
-
-	size_t rx_depth = handler->rx_depth;
-
-	for (size_t i = 0; i < min(size_t(rx_depth), ops);i++) {
-		post_recv(*handler, recv.offset(), PACK_SIZE);
-		recv.step();
-	}
-	int done = 0;
-
-	while (!done && !stop_flag) {
-		ne_recv = poll_recv_cq(*handler, wc_recv);
-		if (ne_recv != 0) {
-			global_timer.start_once();
-		}
-
-		for (int i = 0;i < ne_recv;i++) {
-			if (recv.index() < ops) {
-				post_recv(*handler, recv.offset(), PACK_SIZE);
-				recv.step();
+	for(size_t i = 0; i < ops;i++) {	
+		post_recv(*handler, 0, PACK_SIZE);
+		while(1){
+			ne_recv = poll_recv_cq(*handler, wc_recv);
+			if (ne_recv != 0) {
+				break;
 			}
-			assert(wc_recv[i].status == IBV_WC_SUCCESS);
-			assert(wc_recv[i].byte_len == static_cast<uint32_t>(PACK_SIZE));
-			recv_comp.step();
 		}
-
-		if (recv_comp.index() >= ops) {
-			done = 1;
+		t1 = get_tscp();
+		/*copy data from CPU to DPU*/
+		DPU_FOREACH(set, dpu, each_dpu){
+			DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+		}
+		DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		t2 = get_tscp();
+		uint64_t* send_data = (uint64_t*)malloc(sizeof(uint64_t)*2);
+		send_data[0] = t1;
+		send_data[1] = t2;
+		int bytes_sent = send(net_param.sockfd[1], send_data, sizeof(uint64_t)*2, 0);
+		if (bytes_sent < 0) {
+			perror("send");
+			std::cout << "error infor: " << strerror(errno) << std::endl;
 		}
 	}
-	global_timer.end();
-	double duration = global_timer.get_seconds();
-	double speed = 8.0 * ops * PACK_SIZE / 1000 / 1000 / 1000 / duration;
-	std:: string s1(reinterpret_cast<char *>(buf), 20);
-	std::cout << " result buffer: " << s1 << std::endl;
-	std::lock_guard<std::mutex> guard(IO_LOCK);
-	total_bw = total_bw + speed;
-	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
 
-	free(wc_recv);
 }
 
-void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops) {
-	struct dpu_set_t set,dpu;
+void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+	struct dpu_set_t set;
+	struct dpu_set_t dpu;
+	uint32_t each_dpu;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+    DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);
 	// assert(latency_hist);
-	wait_scheduling(thread_index, IO_LOCK);
-
-
-	TimeUtil global_timer;
-	std::vector<size_t>timers(128);
-	size_t timer_head = 0, timer_tail = 0;
-	int ne_send;
+	uint64_t* time_client_start_copy = (uint64_t*)malloc(sizeof(uint64_t)*ops);
+	uint64_t* time_client_start_rdma = (uint64_t*)malloc(sizeof(uint64_t)*ops);
+	uint64_t* time_server_end_rdma = (uint64_t*)malloc(sizeof(uint64_t)*ops);
+	uint64_t* time_server_end_copy = (uint64_t*)malloc(sizeof(uint64_t)*ops);
+	uint64_t* recv_data = (uint64_t*)malloc(sizeof(uint64_t)*2);
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
-	
-
+	int ne_send,byte_recv;
 	OffsetHandler send(NUM_PACK, PACK_SIZE, 0);
-	OffsetHandler send_comp(NUM_PACK, PACK_SIZE, 0);
-
-	size_t tx_depth = OUTSTANDING;//handler->tx_depth;
-	for (size_t i = 0; i < min(tx_depth, ops);i++) {
+	for (size_t i = 0; i < ops;i++) {
+		
+		time_client_start_copy[i] = get_tscp();
+		/*copy data from DPU to CPU*/
+		DPU_FOREACH(set, dpu, each_dpu){
+            DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+        }
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		time_client_start_rdma[i] = get_tscp();
+	
+		/* RDMA to server */
 		post_send(*handler, send.offset(), PACK_SIZE);
-		timers[timer_head] = get_tsc();
-		timer_head = (timer_head + 1) % 128;
-		send.step();
+		while(1){
+			ne_send = poll_send_cq(*handler, wc_send);
+			if (ne_send != 0) {
+				break;
+			}
+		}
+		byte_recv = recv(net_param.sockfd[0], recv_data, sizeof(uint64_t)*2, 0);
+		time_server_end_rdma[i] = recv_data[0];
+		time_server_end_copy[i] = recv_data[1];
+		std::cout << "latency: " << time_server_end_copy[i] - time_client_start_copy[i] << std::endl;
 	}
-	while (send_comp.index() < ops && !stop_flag) {
-		ne_send = poll_send_cq(*handler, wc_send);
-		if (ne_send != 0) {
-			global_timer.start_once();
-		}
-		for (int i = 0;i < ne_send;i++) {
-			assert(wc_send[i].status == IBV_WC_SUCCESS);
-			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
-			timer_tail = (timer_tail + 1) % 128;
-			send_comp.step();
-		}
-		if (send.index() < ops && send.index() - send_comp.index() < tx_depth) {
-			post_send(*handler, send.offset(), PACK_SIZE);
-			timers[timer_head] = get_tsc();
-			timer_head = (timer_head + 1) % 128;
-			send.step();
-		}
+	uint64_t average_latency_DPU2CPU =0;
+	uint64_t average_latency_RDMA =0;
+	uint64_t average_latency_CPU2DPU =0;
+	uint64_t average_latency =0;
+	for (size_t i = 0; i < ops;i++) {
+		average_latency_DPU2CPU += time_client_start_rdma[i] - time_client_start_copy[i];
+		average_latency_RDMA += time_server_end_rdma[i] - time_client_start_rdma[i];
+		average_latency_CPU2DPU += time_server_end_copy[i] - time_server_end_rdma[i];
+		average_latency += time_server_end_copy[i] - time_client_start_copy[i];
 	}
-	while (send_comp.index() < send.index()) {
-		ne_send = poll_send_cq(*handler, wc_send);
-		for (int i = 0;i < ne_send;i++) {
-			assert(wc_send[i].status == IBV_WC_SUCCESS);
-			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
-			timer_tail = (timer_tail + 1) % 128;
-			send_comp.step();
-		}
-	}
-	global_timer.end();
-	double duration = global_timer.get_seconds();
-	double speed = 8.0 * send_comp.index() * PACK_SIZE / 1000 / 1000 / 1000 / duration;
-
-	std::lock_guard<std::mutex> guard(IO_LOCK);
-	total_bw = total_bw + speed;
-	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
-
-	free(wc_send);
+	average_latency_DPU2CPU = average_latency_DPU2CPU/ops;	
+	average_latency_RDMA = average_latency_RDMA/ops;
+	average_latency_CPU2DPU = average_latency_CPU2DPU/ops;
+	average_latency = average_latency/ops;
+	double average_latency_DPU2CPU_us = (double)average_latency_DPU2CPU/2.1/1000;
+	double average_latency_RDMA_us = (double)average_latency_RDMA/2.1/1000;
+	double average_latency_CPU2DPU_us = (double)average_latency_CPU2DPU/2.1/1000;
+	double average_latency_us = (double)average_latency/2.1/1000;
+	std::cout << "average_latency_DPU2CPU: " << average_latency_DPU2CPU_us << " us" << std::endl;
+	std::cout << "average_latency_RDMA: " << average_latency_RDMA_us << " us" << std::endl;
+	std::cout << "average_latency_CPU2DPU: " << average_latency_CPU2DPU_us << " us" << std::endl;
+	std::cout << "average_latency: " << average_latency_us << " us" << std::endl;
 }
 
 void benchmark(NetParam &net_param) {
@@ -191,7 +321,9 @@ void benchmark(NetParam &net_param) {
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
 	assert(NUM_THREADS <= num_cpus);
 
-	BUF_SIZE = NUM_PACK * PACK_SIZE * 2;
+	//BUF_SIZE = NUM_PACK * PACK_SIZE * 2;
+	BUF_SIZE = TOTAL_DPU_MEM_SIZE;
+	PACK_SIZE =TOTAL_DPU_MEM_SIZE;
 	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
 	LOG_I("OPS : [%ld]", ops);
 
@@ -222,23 +354,29 @@ void benchmark(NetParam &net_param) {
 		connect_qp_rc(net_param, *qp_handlers[i], info + dest_id * NUM_THREADS + i, info + my_id * NUM_THREADS + i);
 	}
 
+	// int socket_fd = net_param.sockfd[0];
 	vector<thread> threads(NUM_THREADS);
-	struct timespec start_timer, end_timer;
-	clock_gettime(CLOCK_MONOTONIC, &start_timer);
+	// struct timespec start_timer, end_timer;
+	// clock_gettime(CLOCK_MONOTONIC, &start_timer);
 	for (int i = 0;i < NUM_THREADS;i++) {
 		int now_index = get_cpu_index_with_numa(i + CORE_OFFSET, net_param.numa_node);
+		// if (net_param.nodeId == 0) {
+		// 	threads[i] = thread(sub_task_server, now_index, qp_handlers[i], bufs[i], ops, net_param);
+		// } else if (net_param.nodeId == 1) {
+		// 	threads[i] = thread(sub_task_client, now_index, qp_handlers[i], bufs[i], ops, net_param);
+		// }
 		if (net_param.nodeId == 0) {
-			threads[i] = thread(sub_task_server, now_index, qp_handlers[i], bufs[i], ops);
+			threads[i] = thread(sub_latency_server, now_index, qp_handlers[i], bufs[i], ops, net_param);
 		} else if (net_param.nodeId == 1) {
-			threads[i] = thread(sub_task_client, now_index, qp_handlers[i], bufs[i], ops);
+			threads[i] = thread(sub_latency_client, now_index, qp_handlers[i], bufs[i], ops, net_param);
 		}
 		set_cpu_with_numa(threads[i], i + CORE_OFFSET, net_param.numa_node);
 	}
 	for (int i = 0;i < NUM_THREADS;i++) {
 		threads[i].join();
 	}
-	clock_gettime(CLOCK_MONOTONIC, &end_timer);
-	printf("Total bandwidth: %f Gbps\n", total_bw.load());
+	// clock_gettime(CLOCK_MONOTONIC, &end_timer);
+	// printf("Total bandwidth: %f Gbps\n", total_bw.load());
 	for (int i = 0;i < NUM_THREADS;i++) {
 		free(qp_handlers[i]->send_sge_list);
 		free(qp_handlers[i]->recv_sge_list);
@@ -260,21 +398,20 @@ void benchmark(NetParam &net_param) {
 	delete[]qp_handlers;
 }
 
-DEFINE_int32(iterations, 1000, "iterations");
+DEFINE_int32(iterations, 100, "iterations");
 DEFINE_int32(packSize, 4096, "packSize");
 DEFINE_int32(threads, 1, "num_threads");
 DEFINE_int32(nodeId, 0, "nodeId");
 DEFINE_string(serverIp, "", "serverIp");
 DEFINE_int32(coreOffset, 0, "coreOffset");
-DEFINE_int32(numPack, 1024, "numPack");
+DEFINE_int32(numPack, 1, "numPack");
 DEFINE_string(deviceName, "mlx5_0", "deviceName");
 DEFINE_int32(gidIndex, 3, "gidIndex");
 DEFINE_int32(numaNode, 0, "numaNode");
 DEFINE_int32(port, 6666, "bind_port");
 
 int main(int argc, char *argv[]) {
-	signal(SIGINT, ctrl_c_handler);
-	signal(SIGTERM, ctrl_c_handler);
+	
 
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 

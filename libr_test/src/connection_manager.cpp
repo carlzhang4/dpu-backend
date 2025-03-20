@@ -33,7 +33,18 @@ void socket_init(NetParam &net_param) {
             LOG_I("connected by %d", nodeId);
             fflush(stdout);
             net_param.sockfd[nodeId] = connfd;
+        //     char* buf_send = (char*)malloc(20);
+        // memcpy(buf_send, "thanks for connect", 20);
+        // std::cout << "send message to client: " << buf_send << std::endl;
+        // int bytes_sent = send(connfd, buf_send, 20, 0);
+        // if (bytes_sent < 0) {
+        //     perror("send");
+        //     std::cout << "error infor: " << strerror(errno) << std::endl;
+        // }else {
+        //     std::cout << "send message "<< bytes_sent<<" bytes to client"<< std::endl;
+        // }
         }
+        
     } else {//client
         sleep(1);
         addrinfo hints{};
@@ -47,6 +58,15 @@ void socket_init(NetParam &net_param) {
         int nodeId = net_param.nodeId;
         assert(send(sockfd, static_cast<void *>(&nodeId), sizeof(nodeId), 0) == sizeof(nodeId));
         net_param.sockfd[0] = sockfd;
+        // char* buf_recv = (char*)malloc(20);
+        // std::cout << "waiting for message from server" << std::endl;
+        // int err= recv(sockfd, buf_recv, 20, 0);
+        // if (err < 0) {
+        //     perror("recv");
+        //     std::cout << "error infor: " << strerror(errno) << std::endl;
+        // }
+        // std::cout << "recv message from server: " << buf_recv << std::endl;
+        
     }
 }
 void exchange_data(NetParam &net_param, char *data, int size) {
