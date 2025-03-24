@@ -9,20 +9,26 @@
 #include <queue> 
 #include <fstream>
 #include "libr.hpp"
-#include <dpu.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
-#include <dpu_types.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
-#include <dpu_error.h>
-#include <dpu_management.h>
-#include <dpu_program.h>
+extern "C" {
+	#include <dpu.h>
+	#include <dpu_types.h>
+	#include <dpu_error.h>
+	#include <dpu_management.h>
+	#include <dpu_program.h>
+	
+	
+	}
+
+
 
 #include <pthread.h>
 #include <x86intrin.h>
@@ -43,6 +49,10 @@
 #define DPU_BINARY_USER "./benchmarks/baseline/baseline_latency_host"
 #endif
 
+// #define DPU_NUM 8
+// #define TOTAL_DPU_MEM_SIZE 8*1024
+//#define OUTSTANDING 8
+
 uint64_t get_tscp(void)
 {
   uint32_t lo, hi;
@@ -61,46 +71,60 @@ int NUM_PACK;
 int PACK_SIZE;
 int NUM_THREADS;
 int CORE_OFFSET;
-int BUF_SIZE;
+uint64_t BUF_SIZE;
 string DEVICE_NAME;
 int GID_INDEX;
 int NUMA_NODE;
 int BATCH_SIZE = 1;
-int OUTSTANDING = 64;
-std::atomic<bool> stop_flag = false;
-std::atomic<double> total_bw = 0;
-void ctrl_c_handler(int) { stop_flag = true; }
+int OUTSTANDING = 8;
+int DPU_NUM = 8;
+uint64_t TOTAL_DPU_MEM_SIZE = 8*1024;
+//std::atomic<bool> stop_flag = false;
+//std::atomic<double> total_bw = 0;
+//void ctrl_c_handler(int) { stop_flag = true; }
 
 // hdr_histogram *latency_hist = nullptr;
 double scale_value = 10;
 
+
+
+
 void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops, NetParam net_param) {
-	wait_scheduling(thread_index, IO_LOCK);
-	(void)buf;
+	struct dpu_set_t set,dpu;
+	uint32_t each_dpu;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+    DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+
 	TimeUtil global_timer;
 
 	int ne_recv;
 	struct ibv_wc *wc_recv = NULL;
 	ALLOCATE(wc_recv, struct ibv_wc, CTX_POLL_BATCH);
 
-	OffsetHandler recv(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
-	OffsetHandler recv_comp(NUM_PACK, PACK_SIZE, BUF_SIZE / 2);
+	OffsetHandler recv(OUTSTANDING, PACK_SIZE, 0);
+	OffsetHandler recv_comp(OUTSTANDING, PACK_SIZE, 0);
 
-	size_t rx_depth = handler->rx_depth;
+	size_t rx_depth = OUTSTANDING;//handler->rx_depth;
+
 
 	for (size_t i = 0; i < min(size_t(rx_depth), ops);i++) {
 		post_recv(*handler, recv.offset(), PACK_SIZE);
 		recv.step();
 	}
 	int done = 0;
-
-	while (!done && !stop_flag) {
+	global_timer.start();
+	while (!done ) {
 		ne_recv = poll_recv_cq(*handler, wc_recv);
 		if (ne_recv != 0) {
 			global_timer.start_once();
 		}
-
 		for (int i = 0;i < ne_recv;i++) {
+			//* MEMORY COPY DPU2CPU
+			DPU_FOREACH(set, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf+recv.offset())[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+			}
+			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
 			if (recv.index() < ops) {
 				post_recv(*handler, recv.offset(), PACK_SIZE);
 				recv.step();
@@ -116,30 +140,20 @@ void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops
 	}
 	global_timer.end();
 	double duration = global_timer.get_seconds();
-	double speed = 8.0 * ops * PACK_SIZE / 1000 / 1000 / 1000 / duration;
-	std:: string s1(reinterpret_cast<char *>(buf), 20);
-	std::cout << " result buffer: " << s1 << std::endl;
-	char* buf_send = (char*)malloc(20);
-	memcpy(buf_send, "thanks for connect", 20);
-	int bytes_sent = send(net_param.sockfd[1], buf_send, 20, 0);
-	if (bytes_sent < 0) {
-		perror("send");
-		std::cout << "error infor: " << strerror(errno) << std::endl;
-	}else {
-		std::cout << "send message "<< bytes_sent<<" bytes to client"<< std::endl;
-	}
-	std::lock_guard<std::mutex> guard(IO_LOCK);
-	total_bw = total_bw + speed;
-	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
-
+	double speed = 1.0*ops * PACK_SIZE / 1000 / 1000 / 1000 / duration;
+	std::cout << " Bandwidth: " << speed << " GB/s" << std::endl;
 	free(wc_recv);
 }
 
 void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
 	struct dpu_set_t set,dpu;
+	uint32_t each_dpu;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+    DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
+    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);
 	// assert(latency_hist);
-	wait_scheduling(thread_index, IO_LOCK);
+	//wait_scheduling(thread_index, IO_LOCK);
 
 
 	TimeUtil global_timer;
@@ -150,31 +164,45 @@ void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	
 
-	OffsetHandler send(NUM_PACK, PACK_SIZE, 0);
-	OffsetHandler send_comp(NUM_PACK, PACK_SIZE, 0);
+	OffsetHandler send(OUTSTANDING, PACK_SIZE, 0);
+	OffsetHandler send_comp(OUTSTANDING, PACK_SIZE, 0);
 
 	size_t tx_depth = OUTSTANDING;//handler->tx_depth;
+	global_timer.start();
 	for (size_t i = 0; i < min(tx_depth, ops);i++) {
+		//* MEMORY COPY DPU2CPU
+		DPU_FOREACH(set, dpu, each_dpu){ 
+            DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf+send.offset())[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+        }
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		//* RDMA to server
 		post_send(*handler, send.offset(), PACK_SIZE);
-		timers[timer_head] = get_tsc();
-		timer_head = (timer_head + 1) % 128;
+		// timers[timer_head] = get_tsc();
+		// timer_head = (timer_head + 1) % 128;
 		send.step();
 	}
-	while (send_comp.index() < ops && !stop_flag) {
+	while (send_comp.index() < ops ) {
 		ne_send = poll_send_cq(*handler, wc_send);
-		if (ne_send != 0) {
-			global_timer.start_once();
-		}
+		// if (ne_send != 0) {
+		// 	global_timer.start_once();
+		// }
 		for (int i = 0;i < ne_send;i++) {
 			assert(wc_send[i].status == IBV_WC_SUCCESS);
 			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
-			timer_tail = (timer_tail + 1) % 128;
+			// timer_tail = (timer_tail + 1) % 128;
+			//std::cout << "success" << std::endl;
 			send_comp.step();
 		}
 		if (send.index() < ops && send.index() - send_comp.index() < tx_depth) {
+			//* MEMORY COPY DPU2CPU
+			DPU_FOREACH(set, dpu, each_dpu){ 
+				DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf+send.offset())[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+			}
+			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+			//* RDMA to server
 			post_send(*handler, send.offset(), PACK_SIZE);
-			timers[timer_head] = get_tsc();
-			timer_head = (timer_head + 1) % 128;
+			// timers[timer_head] = get_tsc();
+			// timer_head = (timer_head + 1) % 128;
 			send.step();
 		}
 	}
@@ -183,26 +211,18 @@ void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops
 		for (int i = 0;i < ne_send;i++) {
 			assert(wc_send[i].status == IBV_WC_SUCCESS);
 			// hdr_record_value_atomic(latency_hist, (get_tsc() - timers[timer_tail]) * 10);
-			timer_tail = (timer_tail + 1) % 128;
+			// timer_tail = (timer_tail + 1) % 128;
 			send_comp.step();
 		}
 	}
 	global_timer.end();
 	double duration = global_timer.get_seconds();
-	double speed = 8.0 * send_comp.index() * PACK_SIZE / 1000 / 1000 / 1000 / duration;
-
-	char* buf_recv = (char*)malloc(20);
-	int err= recv(net_param.sockfd[0], buf_recv, 20, 0);
-	if (err < 0) {
-		perror("recv");
-		std::cout << "error infor: " << strerror(errno) << std::endl;
-	}
-	std::cout << "recv message from server: " << buf_recv << std::endl;
-	
-	std::lock_guard<std::mutex> guard(IO_LOCK);
-	total_bw = total_bw + speed;
-	LOG_I("Data verification success, thread [%d], duration [%f]s, throughput [%f] Gpbs", thread_index, duration, speed);
-
+	double speed = 1.0* send_comp.index() * PACK_SIZE / 1000 / 1000 / 1000 / duration;
+	std::cout << " Bandwidth: " << speed << " GB/s" << std::endl;
+	//* write the set up and bandwidth to a file
+	std::ofstream out("bandwidth.txt", std::ios::app);
+	out << DPU_NUM << " " << OUTSTANDING<< " " <<TOTAL_DPU_MEM_SIZE<< " " << speed  << std::endl;
+	out.close();
 	free(wc_send);
 }
 
@@ -211,7 +231,11 @@ void benchmark(NetParam &net_param) {
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
 	assert(NUM_THREADS <= num_cpus);
 
-	BUF_SIZE = NUM_PACK * PACK_SIZE * 2;
+	BUF_SIZE = (uint64_t)TOTAL_DPU_MEM_SIZE * OUTSTANDING;
+	if(BUF_SIZE <= 4096){
+		BUF_SIZE = 4096*2;
+	}
+	PACK_SIZE =TOTAL_DPU_MEM_SIZE;
 	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
 	LOG_I("OPS : [%ld]", ops);
 
@@ -259,7 +283,7 @@ void benchmark(NetParam &net_param) {
 		threads[i].join();
 	}
 	clock_gettime(CLOCK_MONOTONIC, &end_timer);
-	printf("Total bandwidth: %f Gbps\n", total_bw.load());
+	//printf("Total bandwidth: %f Gbps\n", total_bw.load());
 	for (int i = 0;i < NUM_THREADS;i++) {
 		free(qp_handlers[i]->send_sge_list);
 		free(qp_handlers[i]->recv_sge_list);
@@ -287,15 +311,19 @@ DEFINE_int32(threads, 1, "num_threads");
 DEFINE_int32(nodeId, 0, "nodeId");
 DEFINE_string(serverIp, "", "serverIp");
 DEFINE_int32(coreOffset, 0, "coreOffset");
-DEFINE_int32(numPack, 1024, "numPack");
+DEFINE_int32(numPack, 1, "numPack");
 DEFINE_string(deviceName, "mlx5_0", "deviceName");
 DEFINE_int32(gidIndex, 3, "gidIndex");
 DEFINE_int32(numaNode, 0, "numaNode");
 DEFINE_int32(port, 6666, "bind_port");
+DEFINE_int32(outstanding, 8, "outstanding");
+DEFINE_int32(dpu_num, 8, "dpu_num");
+DEFINE_int32(total_dpu_mem_size, 64, "total_dpu_mem_size");
+
 
 int main(int argc, char *argv[]) {
-	signal(SIGINT, ctrl_c_handler);
-	signal(SIGTERM, ctrl_c_handler);
+	// signal(SIGINT, ctrl_c_handler);
+	// signal(SIGTERM, ctrl_c_handler);
 
 	gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -307,6 +335,9 @@ int main(int argc, char *argv[]) {
 	DEVICE_NAME = FLAGS_deviceName;
 	GID_INDEX = FLAGS_gidIndex;
 	NUMA_NODE = FLAGS_numaNode;
+	OUTSTANDING = FLAGS_outstanding;
+	DPU_NUM = FLAGS_dpu_num;
+	TOTAL_DPU_MEM_SIZE = FLAGS_total_dpu_mem_size;
 
 	NetParam net_param;
 	net_param.numNodes = 2;
@@ -326,6 +357,7 @@ int main(int argc, char *argv[]) {
 
 	init_net_param(net_param);
 	socket_init(net_param);
+	net_param.batch_size = OUTSTANDING;
 	roce_init(net_param, NUM_THREADS);
 	benchmark(net_param);
 
