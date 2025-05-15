@@ -15,7 +15,7 @@
 #define BUFFER_SIZE (1 << BUFFER_SIZE_SHIFT)
 
 //DPU_ALLOCATE_ALL
-#define NUM_DPUS 1 //DPU_ALLOCATE_ALL
+#define NUM_DPUS 8 //DPU_ALLOCATE_ALL
 
 void copy_to(struct dpu_set_t dpu){
     uint8_t* buffer = (uint8_t*)malloc(BUFFER_SIZE);
@@ -51,6 +51,8 @@ int main() {
 	__builtin_ia32_mfence();
 
 	sleep(1);
+
+	printf("\nstart dpu kernel\n");
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
     DPU_FOREACH(set, dpu){

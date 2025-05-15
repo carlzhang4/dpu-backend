@@ -171,7 +171,9 @@ void export_test(){
 		rank.open_access();
 
 		auto addr = rank.base_region_addr;
-
-		export_buffer((void*)addr, 1024);
+		//uint64_t buffer_size = 64;
+		//void* cpu_memory = (void*)malloc(buffer_size);
+		//export_buffer((void*)cpu_memory, buffer_size);
+		export_buffer((void*)addr, 256*1024*1024);
 	}
 }

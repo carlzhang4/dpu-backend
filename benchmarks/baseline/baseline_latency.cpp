@@ -47,8 +47,8 @@ extern "C" {
 #endif
 
 
-#define DPU_NUM 8
-#define TOTAL_DPU_MEM_SIZE 256*1024*1024
+// #define DPU_NUM 8
+// #define TOTAL_DPU_MEM_SIZE 256*1024*1024
 
 
 uint64_t get_tscp(void)
@@ -75,7 +75,8 @@ int GID_INDEX;
 int NUMA_NODE;
 int BATCH_SIZE = 1;
 int OUTSTANDING = 64;
-
+int DPU_NUM = 8;
+uint64_t TOTAL_DPU_MEM_SIZE = 8*1024;
 
 // hdr_histogram *latency_hist = nullptr;
 double scale_value = 10;
@@ -234,11 +235,11 @@ void sub_latency_server(int thread_index, QpHandler *handler, void *buf, size_t 
 		}
 		t1 = get_tscp();
 		/*copy data from CPU to DPU*/
-		DPU_FOREACH(set, dpu, each_dpu){
-			DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
-		}
-		DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
-		t2 = get_tscp();
+		// DPU_FOREACH(set, dpu, each_dpu){
+		// 	DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+		// }
+		// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		// t2 = get_tscp();
 		uint64_t* send_data = (uint64_t*)malloc(sizeof(uint64_t)*2);
 		send_data[0] = t1;
 		send_data[1] = t2;
@@ -273,10 +274,10 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 		
 		time_client_start_copy[i] = get_tscp();
 		/*copy data from DPU to CPU*/
-		DPU_FOREACH(set, dpu, each_dpu){
-            DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
-        }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		// DPU_FOREACH(set, dpu, each_dpu){
+        //     DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+        // }
+        // DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
 		time_client_start_rdma[i] = get_tscp();
 	
 		/* RDMA to server */
@@ -290,7 +291,7 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 		byte_recv = recv(net_param.sockfd[0], recv_data, sizeof(uint64_t)*2, 0);
 		time_server_end_rdma[i] = recv_data[0];
 		time_server_end_copy[i] = recv_data[1];
-		std::cout << "latency: " << time_server_end_copy[i] - time_client_start_copy[i] << std::endl;
+		std::cout << 1.0*(time_server_end_rdma[i] - time_client_start_rdma[i])/2.1 << std::endl;
 	}
 	uint64_t average_latency_DPU2CPU =0;
 	uint64_t average_latency_RDMA =0;
@@ -314,6 +315,10 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 	std::cout << "average_latency_RDMA: " << average_latency_RDMA_us << " us" << std::endl;
 	std::cout << "average_latency_CPU2DPU: " << average_latency_CPU2DPU_us << " us" << std::endl;
 	std::cout << "average_latency: " << average_latency_us << " us" << std::endl;
+	std::ofstream latency_file;
+	latency_file.open("latency.txt", std::ios::app);
+	latency_file  <<TOTAL_DPU_MEM_SIZE<< " " << average_latency_DPU2CPU_us << " " << average_latency_RDMA_us << " " << average_latency_CPU2DPU_us << " " << average_latency_us << std::endl;
+	latency_file.close();
 }
 
 void benchmark(NetParam &net_param) {
@@ -323,6 +328,9 @@ void benchmark(NetParam &net_param) {
 
 	//BUF_SIZE = NUM_PACK * PACK_SIZE * 2;
 	BUF_SIZE = TOTAL_DPU_MEM_SIZE;
+	if(BUF_SIZE <= 4096){
+		BUF_SIZE = 4096*2;
+	}
 	PACK_SIZE =TOTAL_DPU_MEM_SIZE;
 	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
 	LOG_I("OPS : [%ld]", ops);
@@ -409,6 +417,8 @@ DEFINE_string(deviceName, "mlx5_0", "deviceName");
 DEFINE_int32(gidIndex, 3, "gidIndex");
 DEFINE_int32(numaNode, 0, "numaNode");
 DEFINE_int32(port, 6666, "bind_port");
+DEFINE_int32(dpu_num, 8, "dpu_num");
+DEFINE_int32(total_dpu_mem_size, 64, "total_dpu_mem_size");
 
 int main(int argc, char *argv[]) {
 	
@@ -423,6 +433,8 @@ int main(int argc, char *argv[]) {
 	DEVICE_NAME = FLAGS_deviceName;
 	GID_INDEX = FLAGS_gidIndex;
 	NUMA_NODE = FLAGS_numaNode;
+	DPU_NUM = FLAGS_dpu_num;
+	TOTAL_DPU_MEM_SIZE = FLAGS_total_dpu_mem_size;
 
 	NetParam net_param;
 	net_param.numNodes = 2;

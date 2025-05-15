@@ -30,7 +30,7 @@
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./benchmarks/Microbenchmark/DPU_CPU_Bandwidth_host"
+#define DPU_BINARY_USER "./benchmarks/baseline/idle_kernel_host"
 #endif
 
  
@@ -64,15 +64,11 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 
     DPU_ASSERT(dpu_alloc(nr_dpus, "nrThreadPerPool=1", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
-    DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+    
 
-    DPU_FOREACH(set, dpu, each_dpu){
-        DPU_ASSERT(dpu_prepare_xfer(dpu, &original_data[each_dpu * data_num_per_dpu]));
-    }
-    DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
+   
 
-
-    long d1 =0,d2 =0;
+    double d1 =0,d2 =0;
     uint64_t t1,t2,t3,t4;
     
 
@@ -83,35 +79,27 @@ int test(uint32_t nr_dpus,uint32_t test_size){
     {
         t1 = get_tscp();
         
-        DPU_FOREACH(set, dpu, each_dpu){
-            DPU_ASSERT(dpu_prepare_xfer(dpu, &before_data[each_dpu * data_num_per_dpu]));
-        }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 
         t2 = get_tscp();
 
    
  
-        t3 = get_tscp();
-        DPU_FOREACH(set, dpu, each_dpu){
-            DPU_ASSERT(dpu_prepare_xfer(dpu, &after_data[each_dpu * data_num_per_dpu]));
-        }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, data_size_per_dpu, DPU_XFER_DEFAULT));
-        t4 = get_tscp();
+        
 
-        d1 += 1.0*(t2-t1)/ 2.1;
-        d2 += 1.0*(t4-t3)/ 2.1;
+        d1 = 1.0*(t2-t1)/ 2.1;
+        printf("%lf\n",d1);
     }
-    printf("*********************************************\n");
-    printf("total dpu number : %d\n",nr_dpus);
-    printf("total data size : %d MB\n",test_size/1024/1024);
-    printf("DPU 2 CPU time cost : %lf\n",1.0*d1/1000000/interval);
-    printf("CPU 2 DPU cost : %lf\n",1.0*d2/1000000/interval);
-    printf("DPU 2 CPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval);
-    printf("CPU 2 DPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
-    FILE *fp = fopen("DPU_CPU_Bandwidth.txt","a");
-    fprintf(fp,"%d %d %lf %lf %lf %lf\n",nr_dpus,test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
-    fclose(fp);
+    // printf("*********************************************\n");
+    // printf("total dpu number : %d\n",nr_dpus);
+    // printf("total data size : %d MB\n",test_size/1024/1024);
+    // printf("DPU 2 CPU time cost : %lf\n",1.0*d1/1000000/interval);
+    // printf("CPU 2 DPU cost : %lf\n",1.0*d2/1000000/interval);
+    // printf("DPU 2 CPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval);
+    // printf("CPU 2 DPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
+    // FILE *fp = fopen("DPU_CPU_Bandwidth.txt","a");
+    // fprintf(fp,"%d %d %lf %lf %lf %lf\n",nr_dpus,test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
+    // fclose(fp);
     DPU_ASSERT(dpu_free(set));
     return 0;
 
