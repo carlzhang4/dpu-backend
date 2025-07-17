@@ -1,0 +1,1 @@
+sudo ./benchmarks/kvstore/kvstore_server -serverIp=127.0.0.1 -max_hash_entry_num=1000

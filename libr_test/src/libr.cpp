@@ -248,7 +248,7 @@ QpHandler *create_qp_rc(NetParam &net_param, void *buf, size_t size, struct Ping
 	attr_qp.qp_state = IBV_QPS_INIT;
 	attr_qp.pkey_index = 0;
 	attr_qp.port_num = net_param.ib_port;
-	attr_qp.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE;//for send
+	attr_qp.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ;//for send
 	assert(ibv_modify_qp(qp, &attr_qp, flags) == 0);
 
 	//setup connection
@@ -596,6 +596,22 @@ void post_send(QpHandler &qp_handler, size_t offset, int length) {
 	qp_handler.send_wr->next = NULL;
 	qp_handler.send_wr->wr.rdma.remote_addr = qp_handler.remote_buf + offset;
 
+	// fuck https://github.com/linux-rdma/rdma-core/blob/6cd09097ad2eebde9a7fa3d3bb09a2cea6e3c2d6/providers/rxe/rxe.c#L1665-L1666
+	assert(ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr) == 0);
+	// qp_handler.send_wr[0].send_flags = IBV_SEND_SIGNALED;
+	// qp_handler.send_wr[0].wr_id = 0;
+}
+
+void post_read(QpHandler &qp_handler, size_t offset, int length) {
+	qp_handler.send_sge_list[0].addr = qp_handler.buf + offset;
+	qp_handler.send_sge_list[0].length = length;
+	if (length <= qp_handler.max_inline_size) {
+		qp_handler.send_wr[0].send_flags |= IBV_SEND_INLINE;
+	}
+	qp_handler.send_wr->wr_id = offset;
+	qp_handler.send_wr->next = NULL;
+	qp_handler.send_wr->wr.rdma.remote_addr = qp_handler.remote_buf + offset;
+	qp_handler.send_wr->opcode = IBV_WR_RDMA_READ;
 	// fuck https://github.com/linux-rdma/rdma-core/blob/6cd09097ad2eebde9a7fa3d3bb09a2cea6e3c2d6/providers/rxe/rxe.c#L1665-L1666
 	assert(ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr) == 0);
 	// qp_handler.send_wr[0].send_flags = IBV_SEND_SIGNALED;
