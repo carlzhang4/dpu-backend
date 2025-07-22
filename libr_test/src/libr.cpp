@@ -567,8 +567,8 @@ void connect_qp_rc(NetParam &net_param, QpHandler &qp_handler, struct PingPongIn
 	qp_handler.remote_rkey = remote_info->rkey;
 
 	 //init_wr_base_send_recv(qp_handler);
-	 init_wr_base_write_with_imm(qp_handler);
-	//init_wr_base_write(qp_handler);
+	 //init_wr_base_write_with_imm(qp_handler);
+	init_wr_base_write(qp_handler);
 }
 
 void print_pingpong_info(struct PingPongInfo *info) {

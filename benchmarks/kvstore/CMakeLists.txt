@@ -108,12 +108,12 @@ target_compile_definitions(kvstore_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION}
 set_target_properties(kvstore_cpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_cpu gen_files)
 
-add_executable(kvstore_client_cpu  ./kvstore_client_cpu.cpp ${ALL_DPU_SOURCES} ${SRCS})  
-target_include_directories(kvstore_client_cpu PUBLIC ${INCLUDE_DIRECTORIES} )     
-target_link_libraries(kvstore_client_cpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-target_compile_definitions(kvstore_client_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(kvstore_client_cpu PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(kvstore_client_cpu gen_files)
+add_executable(kvstore_pim  ./kvstore_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pim PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pim  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pim PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pim gen_files)
 
 #Device target
 set(INPUT_kvstore_device "${CMAKE_CURRENT_SOURCE_DIR}/kvstore_device.c")
@@ -126,19 +126,30 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_kvstore_device}"
 )
 
-# set(INPUT_idle_kernel_host "${CMAKE_CURRENT_SOURCE_DIR}/idle_kernel_host.c")
-# set(OUTPUT_idle_kernel_host "idle_kernel_host")
+set(INPUT_kvstore_kventry_processor "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_kventry_processor.c")
+set(OUTPUT_kvstore_kventry_processor "kvstore_kventry_processor")
 
-# add_custom_command(
-#   OUTPUT ${OUTPUT_idle_kernel_host}
-#   COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_idle_kernel_host} -o ${OUTPUT_idle_kernel_host}
-#   DEPENDS ${INPUT_idle_kernel_host}
-#   COMMENT "Generating ${OUTPUT_idle_kernel_host}"
-# )
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_kventry_processor}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_kvstore_kventry_processor} -o ${OUTPUT_kvstore_kventry_processor}
+  DEPENDS ${INPUT_kvstore_kventry_processor} ${CMAKE_CURRENT_SOURCE_DIR}/include/KVStore_Config.h
+  COMMENT "Generating ${OUTPUT_kvstore_kventry_processor}"
+)
+
+set(INPUT_kvstore_get_device "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device.c")
+set(OUTPUT_kvstore_get_device "kvstore_get_device")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_get_device}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_kvstore_get_device} -o ${OUTPUT_kvstore_get_device}
+  DEPENDS ${INPUT_kvstore_get_device}
+  COMMENT "Generating ${OUTPUT_kvstore_get_device}"
+)
 
 add_custom_target(
-  #generate_output_files_baseline_latency
+  generate_output_files_kvstore
   ALL
   DEPENDS ${OUTPUT_kvstore_device}
-  DEPENDS ${OUTPUT_idle_kernel_host}
+  DEPENDS ${OUTPUT_kvstore_kventry_processor}
+  DEPENDS ${OUTPUT_kvstore_get_device}
 )

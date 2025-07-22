@@ -6,6 +6,14 @@
 #include <perfcounter.h>
 #include <barrier.h>
 
+#define MAX_KEY_SIZE 64
+#define BATCH_SIZE 33
+
+
+
+uint64_t __mram_noinit key_array[BATCH_SIZE];
+uint64_t __mram_noinit hash_index[BATCH_SIZE];
+
 typedef struct {
     uint32_t size;
 	enum kernels {
@@ -16,20 +24,14 @@ typedef struct {
 
 __host dpu_arguments_t DPU_INPUT_ARGUMENTS;
 
-// Barrier
-BARRIER_INIT(my_barrier, NR_TASKLETS);
-
-extern int main_kernel1(void);
-
-int (*kernels[nr_kernels])(void) = {main_kernel1};
+uint64_t hash_func1(uint64_t key, size_t len) {
+    uint64_t hash=key; 
+    //memcpy(&hash, key, len);
+    return hash;
+}
 
 int main(void) { 
-    // Kernel
-    return kernels[DPU_INPUT_ARGUMENTS.kernel](); 
-}
-
-// main_kernel1
-int main_kernel1() {
-    
+    hash_index[me()]= hash_func1(key_array[me()],sizeof(uint64_t));
     return 0;
 }
+
