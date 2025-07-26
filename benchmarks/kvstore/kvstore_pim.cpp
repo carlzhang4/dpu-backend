@@ -127,17 +127,37 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	} else {
 		std::cout << "receive message from server" << std::endl;
 	}
-	
+	uint64_t t1,t2,t3,t4,t5,t6;
+	uint64_t t[4];
+	uint64_t d1=0,d2=0,d3=0,d4=0,d5=0;
 	for (uint64_t i = 0; i < ops; i++) {
+		t1 = get_tscp();
 		post_send(*handler, i*sizeof(get_message), sizeof(get_message));
 		//std::cout << "Sent request for key: " << i << std::endl;
-		struct response_message *resp = (struct response_message *)((char*)buf + i * sizeof(response_message));
+		struct response_message *resp = (struct response_message *)((char*)response_msg + i * sizeof(response_message));
 		while(resp->if_valid == false);
+		t6 = get_tscp();
+		bytes_recv = recv(net_param.sockfd[0], t, sizeof(uint64_t)*4, 0);
+		t2 = t[0];
+		t3 = t[1];
+		t4 = t[2];
+		t5 = t[3];
+		d1 += t2 - t1;
+		d2 += t3 - t2;
+		d3 += t4 - t3;
+		d4 += t5 - t4;
+		d5 += t6 - t5;
 		assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
 	}
 	char end_buf[10];
 	memset(end_buf, 0, sizeof(end_buf));
-	
+	std::cout << "All key-value pairs verified successfully." << std::endl;
+	std::cout << "duration 1: " << (double)d1/2.1/1000/ITERATIONS<< "us" << std::endl;
+	std::cout << "duration 2: " << (double)d2/2.1/1000/ITERATIONS << "us" << std::endl;
+	std::cout << "duration 3: " << (double)d3/2.1/1000/ITERATIONS << "us" << std::endl;
+	std::cout << "duration 4: " << (double)d4/2.1/1000/ITERATIONS << "us" << std::endl;
+	std::cout << "duration 5: " << (double)d5/2.1/1000/ITERATIONS << "us" << std::endl;
+	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS << "us" << std::endl;
 	
 }
 
@@ -178,13 +198,15 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	} else {
 		std::cout << "send message to client" << std::endl;
 	}
+	uint64_t t[4];
 	for (uint64_t i = 0; i < ops; i++) {
 			//std::cout << "Processing request for key: " << i << std::endl;
 			//* polling for get message
 			while(get_msg[i].if_valid == false);
+			t[0] = get_tscp();
 			//std::cout << "Received request for key: " << *(uint64_t*)get_msg[i].key << std::endl;
 			uint64_t request_key;
-			struct response_message *resp = (struct response_message *)((char*)buf + i * sizeof(response_message));
+			struct response_message *resp = (struct response_message *)((char*)response_msg + i * sizeof(response_message));
 			resp->if_valid = true;
 			memcpy(&request_key, get_msg[i].key, sizeof(request_key));
 			//* Calculate the hash entry index
@@ -192,18 +214,30 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 				DPU_ASSERT(dpu_prepare_xfer(dpu,&request_key));
 			}
 			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "request_key",0, sizeof(uint64_t) , DPU_XFER_DEFAULT));
+			t[1] = get_tscp();
+			// DPU_FOREACH(set, dpu, each_dpu){
+			// 	DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
+			// }
+			// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
+			// assert(memcmp(key_entry_array[i].value, &i, sizeof(i)) == 0 && "Value mismatch.");
 			DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+			t[2] = get_tscp();
 			DPU_FOREACH(set, dpu, each_dpu){
 				DPU_ASSERT(dpu_prepare_xfer(dpu,&resp->value));
 			}
 			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "result_value",0, VALUE_SIZE , DPU_XFER_DEFAULT));
+			t[3] = get_tscp();
 			//* write value to client
-			post_send(*handler,(char*)resp-(char*)buf,sizeof(struct response_message));
+			// std::cout << "Sending response for key: " << request_key << std::endl;
+			// std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
 			
+			// assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
+			post_send(*handler,(char*)resp-(char*)buf,sizeof(struct response_message));
+			bytes_sent = send(net_param.sockfd[1], t, sizeof(uint64_t)*4, 0);
 		}
 		
 	
-	std::cout << "All key-value pairs verified successfully." << std::endl;
+	//std::cout << "All key-value pairs verified successfully." << std::endl;
 
 }
 
@@ -284,7 +318,7 @@ DEFINE_int32(iterations, 100, "iterations");
 DEFINE_int32(packSize, 4096, "packSize");
 DEFINE_int32(threads, 1, "num_threads");
 DEFINE_int32(nodeId, 0, "nodeId");
-DEFINE_string(serverIp, "", "serverIp");
+DEFINE_string(serverIp, "127.0.0.1", "serverIp");
 DEFINE_int32(coreOffset, 0, "coreOffset");
 DEFINE_int32(numPack, 1, "numPack");
 DEFINE_string(deviceName, "mlx5_0", "deviceName");
@@ -292,7 +326,7 @@ DEFINE_int32(gidIndex, 3, "gidIndex");
 DEFINE_int32(numaNode, 0, "numaNode");
 DEFINE_int32(port, 6666, "bind_port");
 DEFINE_int32(dpu_num, 1, "dpu_num");
-DEFINE_int32(max_hash_entry_num, 100000, "max_hash_entry_num");
+DEFINE_int32(max_hash_entry_num, 1000, "max_hash_entry_num");
 
 int main(int argc, char *argv[]) {
 	

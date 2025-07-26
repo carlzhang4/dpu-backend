@@ -65,10 +65,10 @@ set(COMMONS_SOURCES
 
 set(ALL_DPU_SOURCES ${SOURCES} ${COMMONS_SOURCES})
 
-# if(ENABLE_DEBUG)
-# 	message(STATUS "Add -g for /example")
-# 	add_definitions("-g")
-# endif()
+if(ENABLE_DEBUG)
+	message(STATUS "Add -g for /example")
+	add_definitions("-g")
+endif()
 
 add_definitions("-D UINT32")
 
@@ -141,7 +141,7 @@ set(OUTPUT_kvstore_get_device "kvstore_get_device")
 
 add_custom_command(
   OUTPUT ${OUTPUT_kvstore_get_device}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_kvstore_get_device} -o ${OUTPUT_kvstore_get_device}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device} -o ${OUTPUT_kvstore_get_device}
   DEPENDS ${INPUT_kvstore_get_device}
   COMMENT "Generating ${OUTPUT_kvstore_get_device}"
 )
