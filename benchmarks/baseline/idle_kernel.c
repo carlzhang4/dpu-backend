@@ -109,7 +109,7 @@ int main()
 {
     // for(uint32_t i=1;i<=1024;i*=2){
         for(uint32_t j=8;j<=4*1024*1024;j*=2){
-            test(8,j);
+            test(1,j);
         }
     // }
     // test(8,4194304);

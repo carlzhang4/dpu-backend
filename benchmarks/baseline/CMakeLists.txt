@@ -141,7 +141,7 @@ set(OUTPUT_idle_kernel_host "idle_kernel_host")
 
 add_custom_command(
   OUTPUT ${OUTPUT_idle_kernel_host}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_idle_kernel_host} -o ${OUTPUT_idle_kernel_host}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_idle_kernel_host} -o ${OUTPUT_idle_kernel_host}
   DEPENDS ${INPUT_idle_kernel_host}
   COMMENT "Generating ${OUTPUT_idle_kernel_host}"
 )

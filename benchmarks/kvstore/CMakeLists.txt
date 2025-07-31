@@ -115,6 +115,20 @@ target_compile_definitions(kvstore_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION}
 set_target_properties(kvstore_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_pim gen_files)
 
+add_executable(kvstore_pim_multitasklets  ./kvstore_pim_multitasklets.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pim_multitasklets PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pim_multitasklets  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pim_multitasklets PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pim_multitasklets PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pim_multitasklets gen_files)
+
+add_executable(kvstore_pim_multidpu  ./kvstore_pim_multidpu.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pim_multidpu PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pim_multidpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pim_multidpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pim_multidpu PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pim_multidpu gen_files)
+
 #Device target
 set(INPUT_kvstore_device "${CMAKE_CURRENT_SOURCE_DIR}/kvstore_device.c")
 set(OUTPUT_kvstore_device "kvstore_device")
@@ -146,10 +160,54 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_kvstore_get_device}"
 )
 
+set(INPUT_kvstore_get_device_multitasklets "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_multitasklets.c")
+set(OUTPUT_kvstore_get_device_multitasklets "kvstore_get_device_multitasklets")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_get_device_multitasklets}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=3 -DBL=10 ${INPUT_kvstore_get_device_multitasklets} -o ${OUTPUT_kvstore_get_device_multitasklets}
+  DEPENDS ${INPUT_kvstore_get_device_multitasklets}
+  COMMENT "Generating ${OUTPUT_kvstore_get_device_multitasklets}"
+)
+
+set(INPUT_kvstore_get_device_hash2 "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_hash2.c")
+set(OUTPUT_kvstore_get_device_hash2 "kvstore_get_device_hash2")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_get_device_hash2}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_hash2} -o ${OUTPUT_kvstore_get_device_hash2}
+  DEPENDS ${INPUT_kvstore_get_device_hash2}
+  COMMENT "Generating ${OUTPUT_kvstore_get_device_hash2}"
+)
+
+set(INPUT_kvstore_get_device_hash3 "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_hash3.c")
+set(OUTPUT_kvstore_get_device_hash3 "kvstore_get_device_hash3")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_get_device_hash3}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_hash3} -o ${OUTPUT_kvstore_get_device_hash3}
+  DEPENDS ${INPUT_kvstore_get_device_hash3}
+  COMMENT "Generating ${OUTPUT_kvstore_get_device_hash3}"
+)
+
+set(INPUT_kvstore_get_device_profile "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_profile.c")
+set(OUTPUT_kvstore_get_device_profile "kvstore_get_device_profile")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_get_device_profile}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_profile} -o ${OUTPUT_kvstore_get_device_profile}
+  DEPENDS ${INPUT_kvstore_get_device_profile}
+  COMMENT "Generating ${OUTPUT_kvstore_get_device_profile}"
+)
+
 add_custom_target(
   generate_output_files_kvstore
   ALL
   DEPENDS ${OUTPUT_kvstore_device}
   DEPENDS ${OUTPUT_kvstore_kventry_processor}
   DEPENDS ${OUTPUT_kvstore_get_device}
+  DEPENDS ${OUTPUT_kvstore_get_device_multitasklets}
+  DEPENDS ${OUTPUT_kvstore_get_device_hash2}
+  DEPENDS ${OUTPUT_kvstore_get_device_hash3}
+  DEPENDS ${OUTPUT_kvstore_get_device_profile}
 )

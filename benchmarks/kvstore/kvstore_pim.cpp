@@ -37,6 +37,7 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/stat.h>  // For mkdir
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -45,7 +46,7 @@ extern "C" {
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "./build/benchmarks/kvstore/kvstore_get_device"
+#define DPU_BINARY_USER "../build/benchmarks/kvstore/kvstore_get_device"
 #endif
 
 
@@ -76,6 +77,7 @@ int BATCH_SIZE = 1;
 int OUTSTANDING = 64;
 int DPU_NUM = 1;
 uint64_t MAX_HASH_ENTRY_NUM = 100000;
+int REQUEST_PER_DPU = 1;
 
 
 double scale_value = 10;
@@ -88,13 +90,13 @@ uint64_t hash_func1(const char* key, size_t len) {
 
 struct get_message
 {
-	bool if_valid;
+	uint64_t if_valid; // 1 for valid, 0 for invalid
 	char key[KEY_SIZE];
 };
 
 struct response_message
 {
-	bool if_valid;
+	uint64_t if_valid; // 1 for valid, 0 for invalid
 	char value[VALUE_SIZE];
 };
 
@@ -107,17 +109,41 @@ struct kv_storage {
 void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
 	std::cout << "Client thread started." << std::endl;
 	memset(buf, 0, BUF_SIZE);
+	struct stat st = {0};
+    if (stat("../log", &st) == -1) {
+        if (mkdir("../log", 0777) == -1) {  // 创建目录
+            std::cerr << "Failed to create log directory!" << std::endl;
+            return;
+        }
+    }
+	FILE *fp = fopen("../log/kvstore.txt","a");
+	if (fp == NULL) {
+		std::cerr << "Failed to open log file." << std::endl;
+		return;
+	}
+	// fprintf(fp,"log for kvstore client \n");
+	// fprintf(fp,"log at time %ld\n", time(NULL));
+	// fprintf(fp,"********************************************************\n");
+	
 	// for(uint64_t i = 0; i < MAX_HASH_ENTRY_NUM; ++i) {
 	// 	bool insert_state = store.insert((const char*)&i, (const char*)&i, sizeof(i), sizeof(i));
 	// 	// std::cout << "Inserting key: " << i << std::endl;
 	// 	assert(insert_state && "Failed to insert initial key-value pair ");
 	// }
 
-	struct get_message *get_msg = (struct get_message *)buf;
+	char *get_msg = (char*)buf;
+	
 	struct response_message *response_msg = (struct response_message *)((char*)buf + MAX_HASH_ENTRY_NUM * sizeof(get_message));
-	for(uint64_t i = 0; i < ops; ++i) {
-		get_msg[i].if_valid = true;
-		memcpy(get_msg[i].key, &i, sizeof(i));
+	char* tmp = (char*)get_msg;
+	for(uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
+		*(uint64_t*)tmp = 1;
+		tmp += sizeof(uint64_t);
+		for(int j = 0; j < REQUEST_PER_DPU; ++j) {
+			uint64_t tmp_i = i + j;
+			memcpy(tmp, &tmp_i, sizeof(tmp_i));
+			tmp += KEY_SIZE;
+		}
+		
 	}
 	char start_buf[10];
 	int bytes_recv = recv(net_param.sockfd[0], start_buf, sizeof(start_buf), 0);
@@ -130,12 +156,23 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t t1,t2,t3,t4,t5,t6;
 	uint64_t t[4];
 	uint64_t d1=0,d2=0,d3=0,d4=0,d5=0;
-	for (uint64_t i = 0; i < ops; i++) {
+	uint64_t request_offset = 0, response_offset = 0;
+	struct ibv_wc *wc_send = NULL;
+	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
 		t1 = get_tscp();
-		post_send(*handler, i*sizeof(get_message), sizeof(get_message));
+		// std::cout << "Sending request for key: " << i << std::endl;
+		// std::cout << "request_offset: " << request_offset << std::endl;
+		//std::cout << " rdma write request size: " << REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t) << std::endl;
+		post_send(*handler, request_offset, REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t));
+		while(!poll_send_cq(*handler, wc_send));
+
 		//std::cout << "Sent request for key: " << i << std::endl;
-		struct response_message *resp = (struct response_message *)((char*)response_msg + i * sizeof(response_message));
-		while(resp->if_valid == false);
+		char *resp = ((char*)response_msg + response_offset);
+		//std::cout << "polling response at offset: " << resp-(char*)buf << std::endl;
+		uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
+		while(*resp_valid == 0);
+		//std::cout << "Received response for key: " << i << std::endl;
 		t6 = get_tscp();
 		bytes_recv = recv(net_param.sockfd[0], t, sizeof(uint64_t)*4, 0);
 		t2 = t[0];
@@ -147,27 +184,42 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 		d3 += t4 - t3;
 		d4 += t5 - t4;
 		d5 += t6 - t5;
-		assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
+		request_offset += (REQUEST_PER_DPU * KEY_SIZE+sizeof(uint64_t));
+		response_offset += (REQUEST_PER_DPU * VALUE_SIZE+sizeof(uint64_t));
+		// for(int j = 0; j < REQUEST_PER_DPU; ++j) {
+		// 	// resp = (struct response_message *)((char*)response_msg + (i + j) * sizeof(response_message));
+		// 	//std::cout << "Received response for key: " << *(uint64_t*)resp->key << std::endl;
+		// 	//std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
+		// 	uint64_t value = (i+j)%MAX_HASH_ENTRY_NUM;
+		// 	// std::cout << "Received response for key: " << value << std::endl;
+		// 	// std::cout << "received value: " << *(uint64_t*)resp << std::endl;
+		// 	assert(memcmp(resp, &value, sizeof(i)) == 0 && "Value mismatch.");
+		// 	resp += VALUE_SIZE;
+		// }
+		//assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
 	}
 	char end_buf[10];
+	recv(net_param.sockfd[0], end_buf, sizeof(uint64_t)*4, 0);
 	memset(end_buf, 0, sizeof(end_buf));
 	std::cout << "All key-value pairs verified successfully." << std::endl;
-	std::cout << "duration 1: " << (double)d1/2.1/1000/ITERATIONS<< "us" << std::endl;
-	std::cout << "duration 2: " << (double)d2/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "duration 3: " << (double)d3/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "duration 4: " << (double)d4/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "duration 5: " << (double)d5/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS << "us" << std::endl;
+	std::cout << "duration 1: " << (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU<< "us" << std::endl;
+	std::cout << "duration 2: " << (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
+	std::cout << "duration 3: " << (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
+	std::cout << "duration 4: " << (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
+	std::cout << "duration 5: " << (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
+	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
 	
+	fprintf(fp,"%ld %lf %lf %lf %lf %lf %lf\n",REQUEST_PER_DPU, (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS*REQUEST_PER_DPU);
+	fclose(fp);
 }
 
 void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
 	
 	
 	memset(buf, 0, BUF_SIZE);
-	struct get_message *get_msg = (struct get_message *)buf;
+	char *get_msg = (char *)buf;
 	//std::cout<<"respon offset: " << MAX_HASH_ENTRY_NUM * sizeof(get_message) << std::endl;
-	struct response_message *response_msg = (struct response_message *)((char*)buf + MAX_HASH_ENTRY_NUM * sizeof(get_message));
+	char *response_msg = (char *)((char*)buf + MAX_HASH_ENTRY_NUM * sizeof(get_message));
 	std::cout << "Server thread started." << std::endl;
 	// for(uint64_t i = 0; i< MAX_HASH_ENTRY_NUM; ++i) {
 	// 	get_msg[i].if_valid = true;
@@ -199,21 +251,30 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 		std::cout << "send message to client" << std::endl;
 	}
 	uint64_t t[4];
-	for (uint64_t i = 0; i < ops; i++) {
+	uint64_t request_offset = 0, response_offset = 0;
+	struct ibv_wc *wc_send = NULL;
+	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
 			//std::cout << "Processing request for key: " << i << std::endl;
 			//* polling for get message
-			while(get_msg[i].if_valid == false);
+			uint64_t* request_valid = (uint64_t*)((char*)get_msg +request_offset);
+			while(*request_valid == 0);
+			*request_valid = REQUEST_PER_DPU;
+			// for(int j=0;j<REQUEST_PER_DPU;j++){
+			// 	std::cout << "Processing request for key: " << *(uint64_t*)(get_msg + request_offset + j * KEY_SIZE + sizeof(uint64_t)) << std::endl;
+			// }
 			t[0] = get_tscp();
 			//std::cout << "Received request for key: " << *(uint64_t*)get_msg[i].key << std::endl;
-			uint64_t request_key;
-			struct response_message *resp = (struct response_message *)((char*)response_msg + i * sizeof(response_message));
-			resp->if_valid = true;
-			memcpy(&request_key, get_msg[i].key, sizeof(request_key));
+			//uint64_t request_key;
+			char *resp = ((char*)response_msg +response_offset);
+			*(uint64_t*)(resp +REQUEST_PER_DPU * VALUE_SIZE) = 1; // mark response as valid
+			//memcpy(&request_key, get_msg[i].key, sizeof(request_key));
 			//* Calculate the hash entry index
 			DPU_FOREACH(set, dpu, each_dpu){
-				DPU_ASSERT(dpu_prepare_xfer(dpu,&request_key));
+				DPU_ASSERT(dpu_prepare_xfer(dpu,(get_msg + request_offset)));
 			}
-			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "request_key",0, sizeof(uint64_t) , DPU_XFER_DEFAULT));
+			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "request_key",0, REQUEST_PER_DPU*KEY_SIZE+8 , DPU_XFER_DEFAULT));
+			
 			t[1] = get_tscp();
 			// DPU_FOREACH(set, dpu, each_dpu){
 			// 	DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
@@ -223,16 +284,22 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 			t[2] = get_tscp();
 			DPU_FOREACH(set, dpu, each_dpu){
-				DPU_ASSERT(dpu_prepare_xfer(dpu,&resp->value));
+				DPU_ASSERT(dpu_prepare_xfer(dpu,resp));
 			}
-			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "result_value",0, VALUE_SIZE , DPU_XFER_DEFAULT));
+			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "result_value",0, REQUEST_PER_DPU*VALUE_SIZE , DPU_XFER_DEFAULT));
 			t[3] = get_tscp();
 			//* write value to client
-			// std::cout << "Sending response for key: " << request_key << std::endl;
-			// std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
+			//std::cout << "Sending response for key: " << i << std::endl;
+			//std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
 			
 			// assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
-			post_send(*handler,(char*)resp-(char*)buf,sizeof(struct response_message));
+			post_send(*handler,(char*)resp-(char*)buf, REQUEST_PER_DPU * VALUE_SIZE + sizeof(uint64_t));
+			while(!poll_send_cq(*handler, wc_send));
+			uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
+			// std::cout << "Response valid: " << *resp_valid << std::endl;
+			// std::cout << "Sent response for key: " << *(uint64_t*)(resp) << " at offset: "<< (char*)resp-(char*)buf<< std::endl;
+			request_offset += (REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t));
+			response_offset += (REQUEST_PER_DPU * VALUE_SIZE + sizeof(uint64_t));
 			bytes_sent = send(net_param.sockfd[1], t, sizeof(uint64_t)*4, 0);
 		}
 		
@@ -247,7 +314,7 @@ void benchmark(NetParam &net_param) {
 	assert(NUM_THREADS <= num_cpus);
 
 	
-	BUF_SIZE = MAX_HASH_ENTRY_NUM *(sizeof(get_message)+sizeof(response_message));
+	BUF_SIZE = 10*MAX_HASH_ENTRY_NUM *(sizeof(get_message)+sizeof(response_message));
 	std::cout << "BUF_SIZE: " << BUF_SIZE << std::endl;
 	if(BUF_SIZE <= 4096){
 		BUF_SIZE = 4096*2;
@@ -327,6 +394,7 @@ DEFINE_int32(numaNode, 0, "numaNode");
 DEFINE_int32(port, 6666, "bind_port");
 DEFINE_int32(dpu_num, 1, "dpu_num");
 DEFINE_int32(max_hash_entry_num, 1000, "max_hash_entry_num");
+DEFINE_int32(request_per_dpu,1,"request_per_dpu");
 
 int main(int argc, char *argv[]) {
 	
@@ -342,6 +410,20 @@ int main(int argc, char *argv[]) {
 	NUMA_NODE = FLAGS_numaNode;
 	DPU_NUM = FLAGS_dpu_num;
 	MAX_HASH_ENTRY_NUM = FLAGS_max_hash_entry_num;
+	REQUEST_PER_DPU = FLAGS_request_per_dpu;
+
+	// if(MAX_HASH_ENTRY_NUM < ITERATIONS ){
+	// 	std::cout << "MAX_HASH_ENTRY_NUM should be larger than ITERATIONS" << std::endl;
+	// 	exit(1);
+	// }
+	if(ITERATIONS < REQUEST_PER_DPU) {
+		std::cout << "ITERATIONS should be larger than REQUEST_PER_DPU" << std::endl;
+		exit(1);
+	}
+	if(ITERATIONS % REQUEST_PER_DPU != 0) {
+		std::cout << "ITERATIONS should be divisible by REQUEST_PER_DPU" << std::endl;
+		exit(1);
+	}
 
 	NetParam net_param;
 	net_param.numNodes = 2;
