@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 	int export_buffer(void* buffer, int size);
+	int export_dpu_buffer(void *buffer, int size, int *slice_id_array, int *dpu_array, int num_dpus);
 
 
 #ifdef __cplusplus

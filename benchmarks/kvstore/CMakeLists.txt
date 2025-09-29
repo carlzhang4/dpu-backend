@@ -80,6 +80,7 @@ set(SRCS
 		# ${CMAKE_SOURCE_DIR}/src/devx_device.cpp
 	${CMAKE_SOURCE_DIR}/libr_test/src/devx_mr.cpp
     ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/src/kvstore.cpp
+    ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/src/CuckooHash.cpp
 )
 
 
@@ -88,6 +89,7 @@ include_directories("${CMAKE_SOURCE_DIR}/libr_test/include")
 include_directories("${CMAKE_SOURCE_DIR}/libr_test/include/devx")
 include_directories("${CMAKE_SOURCE_DIR}/libr_test/include/fw")
 include_directories("${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include")
+include_directories("${CMAKE_SOURCE_DIR}/pimnic")
 
 
 set(LIBRARIES ${LIBRARIES} ibverbs pthread numa gflags  mlx5)
@@ -129,6 +131,36 @@ target_compile_definitions(kvstore_pim_multidpu PUBLIC DPU_TOOLS_VERSION=${UPMEM
 set_target_properties(kvstore_pim_multidpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_pim_multidpu gen_files)
 
+add_executable(kvstore_pim_cuckoo  ./kvstore_pim_cuckoo.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pim_cuckoo PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pim_cuckoo  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pim_cuckoo PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pim_cuckoo PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pim_cuckoo gen_files)
+
+add_executable(cuckoo_test  ./cuckoo_test.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(cuckoo_test PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(cuckoo_test  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(cuckoo_test PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(cuckoo_test PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(cuckoo_test gen_files)
+
+add_executable(kvstore_pimnic_host  ./kvstore_pimnic_host.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pimnic_host PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pimnic_host  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pimnic_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pimnic_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pimnic_host gen_files)
+
+
+
+add_executable(kvstore_pimnic_validate  ./kvstore_pimnic_validate.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pimnic_validate PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pimnic_validate  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pimnic_validate PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pimnic_validate PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pimnic_validate gen_files)
+
 #Device target
 set(INPUT_kvstore_device "${CMAKE_CURRENT_SOURCE_DIR}/kvstore_device.c")
 set(OUTPUT_kvstore_device "kvstore_device")
@@ -155,17 +187,27 @@ set(OUTPUT_kvstore_get_device "kvstore_get_device")
 
 add_custom_command(
   OUTPUT ${OUTPUT_kvstore_get_device}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device} -o ${OUTPUT_kvstore_get_device}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device} -o ${OUTPUT_kvstore_get_device}
   DEPENDS ${INPUT_kvstore_get_device}
   COMMENT "Generating ${OUTPUT_kvstore_get_device}"
 )
+
+# set(INPUT_kvstore_get_device_tasklets_parallel "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_tasklets_parallel.c")
+# set(OUTPUT_kvstore_get_device_tasklets_parallel "kvstore_get_device_tasklets_parallel")
+
+# add_custom_command(
+#   OUTPUT ${OUTPUT_kvstore_get_device_tasklets_parallel}
+#   COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_tasklets_parallel} -o ${OUTPUT_kvstore_get_device_tasklets_parallel}
+#   DEPENDS ${INPUT_kvstore_get_device_tasklets_parallel}
+#   COMMENT "Generating ${OUTPUT_kvstore_get_device_tasklets_parallel}"
+# )
 
 set(INPUT_kvstore_get_device_multitasklets "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_multitasklets.c")
 set(OUTPUT_kvstore_get_device_multitasklets "kvstore_get_device_multitasklets")
 
 add_custom_command(
   OUTPUT ${OUTPUT_kvstore_get_device_multitasklets}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=3 -DBL=10 ${INPUT_kvstore_get_device_multitasklets} -o ${OUTPUT_kvstore_get_device_multitasklets}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=3 -DBL=10 ${INPUT_kvstore_get_device_multitasklets} -o ${OUTPUT_kvstore_get_device_multitasklets}
   DEPENDS ${INPUT_kvstore_get_device_multitasklets}
   COMMENT "Generating ${OUTPUT_kvstore_get_device_multitasklets}"
 )
@@ -195,9 +237,41 @@ set(OUTPUT_kvstore_get_device_profile "kvstore_get_device_profile")
 
 add_custom_command(
   OUTPUT ${OUTPUT_kvstore_get_device_profile}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_profile} -o ${OUTPUT_kvstore_get_device_profile}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_get_device_profile} -o ${OUTPUT_kvstore_get_device_profile}
   DEPENDS ${INPUT_kvstore_get_device_profile}
   COMMENT "Generating ${OUTPUT_kvstore_get_device_profile}"
+)
+
+set(INPUT_kvstore_get_device_tasklets_parallel "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_get_device_tasklets_parallel.c")
+
+foreach(COMBINED_VALUE RANGE 1 16)  # 遍历1到16（包含16）
+    set(OUTPUT_NAME "kvstore_get_device_tasklets_parallel_${COMBINED_VALUE}")  # 单参数后缀
+    add_custom_command(
+        OUTPUT ${OUTPUT_NAME}
+        COMMAND dpu-upmem-dpurte-clang 
+            -Wall -Wextra -g 
+            -I${CMAKE_CURRENT_SOURCE_DIR}/include 
+            -Isupport 
+            -O2 
+            -DNR_TASKLETS=${COMBINED_VALUE}     # 设置相等的NR_TASKLETS
+            -DTOTAL_TASKLETS=${COMBINED_VALUE}  # 设置相等的TOTAL_TASKLETS
+            -DBL=10 
+            ${INPUT_kvstore_get_device_tasklets_parallel} 
+            -o ${OUTPUT_NAME}
+        DEPENDS ${INPUT_kvstore_get_device_tasklets_parallel}
+        COMMENT "Building ${OUTPUT_NAME} with NR_TASKLETS=TOTAL_TASKLETS=${COMBINED_VALUE}"
+    )
+    list(APPEND ALL_OUTPUTS ${OUTPUT_NAME})
+endforeach()
+
+set(INPUT_kvstore_pimnic "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_pimnic.c")
+set(OUTPUT_kvstore_pimnic "kvstore_pimnic")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_pimnic}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_pimnic} -o ${OUTPUT_kvstore_pimnic}
+  DEPENDS ${INPUT_kvstore_pimnic}
+  COMMENT "Generating ${OUTPUT_kvstore_pimnic}"
 )
 
 add_custom_target(
@@ -210,4 +284,7 @@ add_custom_target(
   DEPENDS ${OUTPUT_kvstore_get_device_hash2}
   DEPENDS ${OUTPUT_kvstore_get_device_hash3}
   DEPENDS ${OUTPUT_kvstore_get_device_profile}
+  DEPENDS ${OUTPUT_kvstore_get_device_tasklets_parallel}
+  DEPENDS ${OUTPUT_kvstore_pimnic}
+  DEPENDS ${ALL_OUTPUTS}
 )

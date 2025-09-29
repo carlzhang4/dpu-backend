@@ -8,11 +8,12 @@
 
 #include <stdbool.h>
 
+
 typedef enum {
     SILENT = 0,
     WARNING = 1,
-    INFO = 2,
-    DEBUG = 3,
+    NINFO = 2,
+    NDEBUG = 3,
     VERBOSE = 4,
 } verbose_log_level_t;
 

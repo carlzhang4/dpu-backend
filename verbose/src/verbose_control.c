@@ -99,8 +99,8 @@ static void
 apply_verbose_config_to(struct verbose_control *control, verbose_log_level_t log_level)
 {
     control->printw = (log_level >= WARNING) ? printw : NULL;
-    control->printi = (log_level >= INFO) ? printi : NULL;
-    control->printd = (log_level >= DEBUG) ? printd : NULL;
+    control->printi = (log_level >= NINFO) ? printi : NULL;
+    control->printd = (log_level >= NDEBUG) ? printd : NULL;
     control->printv = (log_level >= VERBOSE) ? printv : NULL;
 }
 

@@ -86,7 +86,7 @@ set(OUTPUT_DPU_CPU_Bandwidth_host "DPU_CPU_Bandwidth_host")
 
 add_custom_command(
   OUTPUT ${OUTPUT_DPU_CPU_Bandwidth_host}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=16 -DBL=10 ${INPUT_DPU_CPU_Bandwidth_host} -o ${OUTPUT_DPU_CPU_Bandwidth_host}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -g -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_DPU_CPU_Bandwidth_host} -o ${OUTPUT_DPU_CPU_Bandwidth_host}
   DEPENDS ${INPUT_DPU_CPU_Bandwidth_host}
   COMMENT "Generating ${OUTPUT_DPU_CPU_Bandwidth_host}"
 )

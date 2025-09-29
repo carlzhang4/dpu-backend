@@ -51,7 +51,7 @@ int main() {
 	__builtin_ia32_mfence();
 
 	sleep(1);
-
+	getchar();
 	printf("\nstart dpu kernel\n");
 
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));

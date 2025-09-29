@@ -83,14 +83,25 @@ target_compile_definitions(bf_checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VER
 set_target_properties(bf_checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(bf_checksum_host gen_files)
 
+add_executable(polling_test_host ./polling_test_host.c ${ALL_SOURCES} )
+target_include_directories( polling_test_host PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries( polling_test_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(polling_test_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(polling_test_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(polling_test_host gen_files)
 
+add_executable(address_test ./address_test.c ${ALL_SOURCES} )
+target_include_directories( address_test PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries( address_test pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(address_test PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(address_test PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(address_test gen_files)
 
 #Device target
 set(input_file_checksum "${CMAKE_CURRENT_SOURCE_DIR}/checksum.c")
 set(output_file_checksum "checksum")
 
-set(input_file_bf_checksum "${CMAKE_CURRENT_SOURCE_DIR}/bf_checksum.c")
-set(output_file_bf_checksum "bf_checksum")
+
 
 add_custom_command(
   OUTPUT ${output_file_checksum}
@@ -98,17 +109,26 @@ add_custom_command(
   DEPENDS ${input_file_checksum}
 )
 
+set(input_file_bf_checksum "${CMAKE_CURRENT_SOURCE_DIR}/bf_checksum.c")
+set(output_file_bf_checksum "bf_checksum")
+
 add_custom_command(
   OUTPUT ${output_file_bf_checksum}
   COMMAND dpu-upmem-dpurte-clang ${input_file_bf_checksum} -o ${output_file_bf_checksum}
   DEPENDS ${input_file_bf_checksum}
 )
 
+set(input_file_polling_test "${CMAKE_CURRENT_SOURCE_DIR}/polling_test.c")
+set(output_file_polling_test "polling_test")
 
-
+add_custom_command(
+  OUTPUT ${output_file_polling_test}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_polling_test} -o ${output_file_polling_test}
+  DEPENDS ${input_file_polling_test}
+)
 
 add_custom_target(
   generate_output_files
   ALL
-  DEPENDS ${output_file_bf_checksum} ${output_file_checksum}
+  DEPENDS ${output_file_bf_checksum} ${output_file_checksum} ${output_file_polling_test}
 )

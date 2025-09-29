@@ -84,6 +84,16 @@ public:
 		flush_cache_line(ptr);
 		__builtin_ia32_sfence();
 	}
+
+	void read(uint32_t _offset, char* byte){
+		get_access();
+		uint64_t offset = get_addr(_offset);
+		printf("DPU read, dpu_id:%d, base addr:%lu,slice_id:%d, offset:%lx\n", dpu_id, base_region_addr, slice_id, offset);
+		char* ptr = (char*)(base_region_addr + offset);
+		
+		*byte = *ptr;
+		flush_cache_line(ptr);
+	}
 };
 
 class RANK {
@@ -146,24 +156,54 @@ void bank_list() {
     }
 }
 
+void bank_import(int* slice_id_array, int* dpu_array, int* num_dpus){
+	*num_dpus = 0;
+    for (auto it = _ranks.begin(); it != _ranks.end(); ++it) {
+        auto& rank = it->second;
+        for (const auto& iter : rank.dpus) {
+			const auto& dpu = iter.second;
+			slice_id_array[dpu.index] = dpu.slice_id;
+			dpu_array[dpu.index] = dpu.dpu_id;
+			(*num_dpus)++;
+		}
+    }
+}
+
 
 void bank_write_test(int dpu_idx, int size_shift, int value){
-	printf("Number of ranks:%lu\n", _ranks.size());
+	//printf("Number of ranks:%lu\n", _ranks.size());
 	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
 		auto& rank = it->second;
-		printf("Number of dpus:%lu\n", rank.dpus.size());
+		//printf("Number of dpus:%lu\n", rank.dpus.size());
 
 		if(rank.dpus.find(dpu_idx) != rank.dpus.end()){
 			auto dpu = rank.dpus[dpu_idx];
-			for(int i=0;i<(1<<size_shift);i+=(1<<0)){
-				dpu.write(i, value);
-			}
+			// for(int i=0;i<(1<<size_shift);i+=(1<<0)){
+			// 	dpu.write(i, value);
+			// }
+			dpu.write(size_shift, value);
 		}else{
 			printf("DPU not found\n");
 		}
 	}
 }
 
+uint8_t bank_read_test(int dpu_idx, int offset){
+	uint8_t result = 0;
+	//printf("Number of ranks:%lu\n", _ranks.size());
+	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
+		auto& rank = it->second;
+		//printf("Number of dpus:%lu\n", rank.dpus.size());
+
+		if(rank.dpus.find(dpu_idx) != rank.dpus.end()){
+			auto dpu = rank.dpus[dpu_idx];
+			dpu.read(offset, (char*)&result);
+		}else{
+			printf("DPU not found\n");
+		}
+	}
+	return result;
+}
 
 void export_test(){
 	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
@@ -175,5 +215,31 @@ void export_test(){
 		//void* cpu_memory = (void*)malloc(buffer_size);
 		//export_buffer((void*)cpu_memory, buffer_size);
 		export_buffer((void*)addr, 256*1024*1024);
+	}
+}
+
+void export_polling_test(){
+	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
+		auto& rank = it->second;
+		rank.open_access();
+
+		auto addr = rank.base_region_addr;
+		//uint64_t buffer_size = 64;
+		//void* cpu_memory = (void*)malloc(buffer_size);
+		//export_buffer((void*)cpu_memory, buffer_size);
+		int total_dpu_num=8;
+		int slice_id_array[64];
+		int dpu_array[64];
+		for (auto it = _ranks.begin(); it != _ranks.end(); ++it) {
+			auto& rank = it->second;
+			//total_dpu_num += rank.dpus.size();
+			for (const auto& iter : rank.dpus) {
+				const auto& dpu = iter.second;
+				slice_id_array[dpu.index] = dpu.slice_id;
+				dpu_array[dpu.index] = dpu.dpu_id;
+			}
+		}
+		export_dpu_buffer((void*)addr, 256*1024*1024, slice_id_array, dpu_array, total_dpu_num);
+		// export_buffer((void*)addr, 256*1024*1024);
 	}
 }

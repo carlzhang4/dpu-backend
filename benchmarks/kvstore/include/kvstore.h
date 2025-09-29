@@ -2,11 +2,15 @@
 #define KVSTORE_H
 
 #include <iostream>
+#include "KVStore_Config.h"
 
 #define MAX_KEY_SIZE 64
 #define MAX_VALUE_SIZE 256
 
-
+struct kv_storage {
+    char key[KEY_SIZE];
+    char value[VALUE_SIZE];
+};
 
 struct kv_entry {
     bool in_use;

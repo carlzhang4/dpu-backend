@@ -19,17 +19,20 @@ dpu_error_t
 dpu_disable_one_dpu(struct dpu_t *dpu)
 {
     LOG_DPU(VERBOSE, dpu, "");
-
+    //printf("!!!!!!!!\n");
     if (!dpu->enabled) {
+        //printf("this dpu is not dnabled!\n");
         return DPU_ERR_DPU_DISABLED;
     }
-
+    //printf("this dpu is dnabled!\n");
     dpu_error_t status;
     struct dpu_rank_t *rank = dpu->rank;
     dpu_slice_id_t slice_id = dpu->slice_id;
     dpu_member_id_t dpu_id = dpu->dpu_id;
 
+    //printf("slice_id : %d, dpu_id : %d\n",(int)slice_id,(int)dpu_id);
     FF(RANK_FEATURE(rank, disable_dpu)(dpu));
+    //printf(" NO RANK_FEATURE \n");
 
     rank->runtime.control_interface.slice_info[slice_id].enabled_dpus &= ~(1 << dpu_id);
     rank->runtime.control_interface.slice_info[slice_id].all_dpus_are_enabled = false;

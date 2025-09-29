@@ -46,7 +46,7 @@ extern "C" {
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
-#define DPU_BINARY_USER "../build/benchmarks/kvstore/kvstore_get_device_tasklets_parallel_"
+#define DPU_BINARY_USER "../build/benchmarks/kvstore/kvstore_get_device"
 #endif
 
 
@@ -78,7 +78,6 @@ int OUTSTANDING = 64;
 int DPU_NUM = 1;
 uint64_t MAX_HASH_ENTRY_NUM = 100000;
 int REQUEST_PER_DPU = 1;
-int PARALLEL_TASKLETS = 1; 
 
 
 double scale_value = 10;
@@ -117,7 +116,7 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
             return;
         }
     }
-	FILE *fp = fopen("../log/kvstore_siphash.txt","a");
+	FILE *fp = fopen("../log/kvstore_multidpu.txt","a");
 	if (fp == NULL) {
 		std::cerr << "Failed to open log file." << std::endl;
 		return;
@@ -226,15 +225,18 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	// 	get_msg[i].if_valid = true;
 	// 	memcpy(get_msg[i].key, &i, sizeof(i));
 	// }
-	struct dpu_set_t set;
+	struct dpu_set_t set1,set2,set3;
 	struct dpu_set_t dpu;
 	uint32_t each_dpu;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set1));
+	DPU_ASSERT(dpu_load(set1, DPU_BINARY_USER, NULL));
 
-	string dpu_binary_path = DPU_BINARY_USER + std::to_string(PARALLEL_TASKLETS);
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
-	std::cout << "Loading DPU binary from: " << dpu_binary_path << std::endl;
-	DPU_ASSERT(dpu_load(set, dpu_binary_path.c_str(), NULL));
-	std::cout << "DPU binary loaded successfully." << std::endl;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set2));
+	DPU_ASSERT(dpu_load(set2, DPU_BINARY_USER, NULL));
+
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set3));
+	DPU_ASSERT(dpu_load(set3, DPU_BINARY_USER, NULL));
+
 
 	// //* init KV storage
 	struct kv_storage  key_entry_array[MAX_HASH_ENTRY_NUM];
@@ -242,11 +244,23 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 		memcpy(key_entry_array[i].key, &i, sizeof(i));
 		memcpy(key_entry_array[i].value, &i, sizeof(i));
 	}
-	DPU_FOREACH(set, dpu, each_dpu){
+	
+	DPU_FOREACH(set1, dpu, each_dpu){
 		DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
 	}
-	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
+	DPU_ASSERT(dpu_push_xfer(set1, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
 	
+	DPU_FOREACH(set2, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
+	}
+	DPU_ASSERT(dpu_push_xfer(set2, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
+
+	DPU_FOREACH(set3, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
+	}
+	DPU_ASSERT(dpu_push_xfer(set3, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
+
+
 	char start_buf[10];
 	int bytes_sent = send(net_param.sockfd[1], start_buf, sizeof(start_buf), 0);
 	if (bytes_sent < 0) {
@@ -260,6 +274,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
+		char tmp1[VALUE_SIZE*REQUEST_PER_DPU],tmp2[VALUE_SIZE*REQUEST_PER_DPU],tmp3[VALUE_SIZE*REQUEST_PER_DPU];
 			//std::cout << "Processing request for key: " << i << std::endl;
 			//* polling for get message
 			uint64_t* request_valid = (uint64_t*)((char*)get_msg +request_offset);
@@ -275,10 +290,20 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			*(uint64_t*)(resp +REQUEST_PER_DPU * VALUE_SIZE) = 1; // mark response as valid
 			//memcpy(&request_key, get_msg[i].key, sizeof(request_key));
 			//* Calculate the hash entry index
-			DPU_FOREACH(set, dpu, each_dpu){
+			DPU_FOREACH(set1, dpu, each_dpu){
 				DPU_ASSERT(dpu_prepare_xfer(dpu,(get_msg + request_offset)));
 			}
-			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "request_key",0, REQUEST_PER_DPU*KEY_SIZE+8 , DPU_XFER_DEFAULT));
+			DPU_ASSERT(dpu_push_xfer(set1, DPU_XFER_TO_DPU, "request_key",0, REQUEST_PER_DPU*KEY_SIZE+8 , DPU_XFER_ASYNC));
+			
+			DPU_FOREACH(set2, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,(get_msg + request_offset)));
+			}
+			DPU_ASSERT(dpu_push_xfer(set2, DPU_XFER_TO_DPU, "request_key",0, REQUEST_PER_DPU*KEY_SIZE+8 , DPU_XFER_ASYNC));
+			
+			DPU_FOREACH(set3, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,(get_msg + request_offset)));
+			}
+			DPU_ASSERT(dpu_push_xfer(set3, DPU_XFER_TO_DPU, "request_key",0, REQUEST_PER_DPU*KEY_SIZE+8 , DPU_XFER_ASYNC));
 			
 			t[1] = get_tscp();
 			// DPU_FOREACH(set, dpu, each_dpu){
@@ -286,12 +311,25 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			// }
 			// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
 			// assert(memcmp(key_entry_array[i].value, &i, sizeof(i)) == 0 && "Value mismatch.");
-			DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+			DPU_ASSERT(dpu_launch(set1, DPU_ASYNCHRONOUS));
+			DPU_ASSERT(dpu_launch(set2, DPU_ASYNCHRONOUS));
+			DPU_ASSERT(dpu_launch(set3, DPU_ASYNCHRONOUS));
 			t[2] = get_tscp();
-			DPU_FOREACH(set, dpu, each_dpu){
-				DPU_ASSERT(dpu_prepare_xfer(dpu,resp));
+			DPU_FOREACH(set1, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,tmp1));
 			}
-			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "result_value",0, REQUEST_PER_DPU*VALUE_SIZE , DPU_XFER_DEFAULT));
+			DPU_ASSERT(dpu_push_xfer(set1, DPU_XFER_FROM_DPU, "result_value",0, REQUEST_PER_DPU*VALUE_SIZE , DPU_XFER_ASYNC));
+			DPU_FOREACH(set2, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,tmp2));
+			}
+			DPU_ASSERT(dpu_push_xfer(set2, DPU_XFER_FROM_DPU, "result_value",0, REQUEST_PER_DPU*VALUE_SIZE , DPU_XFER_ASYNC));
+			DPU_FOREACH(set3, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,tmp3));
+			}
+			DPU_ASSERT(dpu_push_xfer(set3, DPU_XFER_FROM_DPU, "result_value",0, REQUEST_PER_DPU*VALUE_SIZE , DPU_XFER_ASYNC));
+			DPU_ASSERT(dpu_sync(set1));
+			DPU_ASSERT(dpu_sync(set2));
+			DPU_ASSERT(dpu_sync(set3));
 			t[3] = get_tscp();
 			//* write value to client
 			//std::cout << "Sending response for key: " << i << std::endl;
@@ -400,7 +438,6 @@ DEFINE_int32(port, 6666, "bind_port");
 DEFINE_int32(dpu_num, 1, "dpu_num");
 DEFINE_int32(max_hash_entry_num, 1000, "max_hash_entry_num");
 DEFINE_int32(request_per_dpu,1,"request_per_dpu");
-DEFINE_int32(parallel_tasklets, 1, "parallel_tasklets");
 
 int main(int argc, char *argv[]) {
 	
@@ -417,7 +454,6 @@ int main(int argc, char *argv[]) {
 	DPU_NUM = FLAGS_dpu_num;
 	MAX_HASH_ENTRY_NUM = FLAGS_max_hash_entry_num;
 	REQUEST_PER_DPU = FLAGS_request_per_dpu;
-	PARALLEL_TASKLETS = FLAGS_parallel_tasklets;
 
 	// if(MAX_HASH_ENTRY_NUM < ITERATIONS ){
 	// 	std::cout << "MAX_HASH_ENTRY_NUM should be larger than ITERATIONS" << std::endl;

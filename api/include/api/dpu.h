@@ -163,6 +163,11 @@ typedef enum _dpu_callback_flags_t {
 dpu_error_t
 dpu_alloc(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set);
 
+
+dpu_error_t
+dpu_alloc_one_per_dpu(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set);
+
+
 /**
  * @brief Allocate the specified number of DPU ranks.
  *

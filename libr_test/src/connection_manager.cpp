@@ -6,6 +6,7 @@ void socket_init(NetParam &net_param) {
     if (net_param.sock_port == 0) {
         net_param.sock_port = 6666;
     }
+    std::cout << "socket port: " << net_param.sock_port << std::endl;
 
     if (net_param.nodeId == 0) {
         printf("\n************************************\n");
@@ -22,7 +23,13 @@ void socket_init(NetParam &net_param) {
         assert(sockfd > 0);
         int reuse = 1;
         setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-        assert(bind(sockfd, server_address->ai_addr, server_address->ai_addrlen) == 0);
+        int bind_result = bind(sockfd, server_address->ai_addr, server_address->ai_addrlen);
+        if (bind_result != 0) {
+            perror("bind() failed"); // 输出具体错误（如 "Address already in use"）
+            assert(bind_result == 0);
+        }
+
+        //assert(bind(sockfd, server_address->ai_addr, server_address->ai_addrlen) == 0);
         free(server_address);
         assert(listen(sockfd, 128) == 0);
         for (int i = 0;i < net_param.numNodes - 1;i++) {//numNodes-1 nodes

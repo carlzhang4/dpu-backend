@@ -4,3 +4,4 @@ compile_commands.json
 /.vscode
 /libr
 /libr-old
+/log

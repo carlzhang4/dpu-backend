@@ -17,7 +17,10 @@ int bank_init(struct dpu_t* dpu_o);
 // int bank_init(uint64_t base_region_addr, int slice_id, int dpu_id);
 void bank_list();
 void bank_write_test(int dpu_idx, int size_shift, int value);
+uint8_t bank_read_test(int dpu_idx,int offset);
 void export_test();
+void export_polling_test();
+void bank_import(int* slice_id_array, int* dpu_array, int* num_dpus);
 
 #ifdef __cplusplus
 }

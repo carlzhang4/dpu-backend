@@ -485,6 +485,115 @@ error_free_ranks:
 }
 
 __API_SYMBOL__ dpu_error_t
+dpu_alloc_one_per_dpu(uint32_t nr_dpus, const char *profile, struct dpu_set_t *dpu_set)
+{
+    LOG_FN(DEBUG, "%d, \"%s\"", nr_dpus, profile);
+
+    if (nr_dpus == 0) {
+        LOG_FN(WARNING, "cannot allocate 0 DPUs");
+        return DPU_ERR_ALLOCATION;
+    }
+
+    /* 强制启用跨Rank分配，忽略profile设置 */
+    bool dispatch_on_all_ranks = true;
+
+    uint32_t capacity = 0;
+    uint32_t allocated_ranks = 0;
+    struct dpu_rank_t **rank_list = NULL;
+    dpu_error_t status = DPU_OK;
+
+    do {
+        printf("loop\n");
+        /* 动态扩展rank存储空间 */
+        if (allocated_ranks == capacity) {
+            capacity = (capacity == 0) ? 1 : capacity * 2;
+            struct dpu_rank_t **tmp = realloc(rank_list, capacity * sizeof(*rank_list));
+            if (!tmp) {
+                status = DPU_ERR_SYSTEM;
+                goto error_cleanup;
+            }
+            rank_list = tmp;
+        }
+
+        /* 申请新rank */
+        struct dpu_rank_t *new_rank;
+        if ((status = dpu_get_rank_of_type(profile, &new_rank)) != DPU_OK) {
+            /* 处理分配失败 */
+            if (allocated_ranks > 0 && nr_dpus == DPU_ALLOCATE_ALL) break;
+            else goto error_cleanup;
+        }
+        rank_list[allocated_ranks++] = new_rank;
+
+        /* 重置rank（保留原逻辑） */
+        if (!new_rank->description->configuration.disable_reset_on_alloc) {
+            if ((status = dpu_reset_rank(new_rank)) != DPU_OK) {
+                goto error_cleanup;
+            }
+        }
+
+        /* 遍历该rank的所有DPU，只保留第一个 */
+        uint32_t dpu_count = get_nr_of_dpus_in_rank(new_rank);
+        printf("Rank id : %d\n", new_rank->rank_id);
+        printf("**************************\n");
+        getchar();
+        for (uint32_t dpu_idx = 0; dpu_idx < dpu_count; ++dpu_idx) {
+            struct dpu_t *dpu = &(new_rank->dpus[dpu_idx]);
+            dpu_slice_id_t slice_id = dpu->slice_id;
+            dpu_member_id_t dpu_id = dpu->dpu_id;
+
+            //printf("slice_id : %d, dpu_id : %d\n",(uint8_t)slice_id,(uint8_t)dpu_id);
+            //getchar();
+            // printf("dpu_idx: %d\n",dpu_idx);
+            // if ((status = dpu_get(new_rank, dpu_idx, &dpu)) != DPU_OK) {
+            //     goto error_cleanup;
+            // }
+            printf("    finish get %d\n",dpu_idx);
+            /* 禁用第一个之后的DPU */
+            if (dpu_idx > 0) {
+                printf("test seg fault\n");
+                if (!dpu->enabled) {
+                    printf("this dpu is not dnabled!\n");
+                    return DPU_ERR_DPU_DISABLED;
+                }
+                printf("this dpu is dnabled!\n");
+                if ((status = dpu_disable_one_dpu(dpu)) != DPU_OK) {
+                    goto error_cleanup;
+                }
+            }
+            printf("    finish disable %d\n",dpu_idx);
+        }
+    } while ((nr_dpus == DPU_ALLOCATE_ALL) ? true : (allocated_ranks < nr_dpus));
+
+    /* 处理ALLOCATE_ALL情况 */
+    if (nr_dpus == DPU_ALLOCATE_ALL) {
+        nr_dpus = allocated_ranks; // 每个rank贡献1个dpu
+    } else if (allocated_ranks < nr_dpus) {
+        status = DPU_ERR_ALLOCATION;
+        goto error_cleanup;
+    }
+
+    /* 构建dpu集合 */
+    if ((status = init_dpu_set(rank_list, allocated_ranks, dpu_set)) != DPU_OK) {
+        goto error_cleanup;
+    }
+
+    /* 初始化传输缓冲区 */
+    if ((status = init_scatter_gather_transfer_buffer(nr_dpus, profile, dpu_set)) != DPU_OK) {
+        goto error_cleanup;
+    }
+
+    free(rank_list);
+    return DPU_OK;
+
+error_cleanup:
+    for (uint32_t i = 0; i < allocated_ranks; ++i) {
+        dpu_free_rank(rank_list[i]);
+    }
+    free(rank_list);
+    return status;
+}
+
+__API_SYMBOL__ dpu_error_t
 dpu_alloc_ranks(uint32_t nr_ranks, const char *profile, struct dpu_set_t *dpu_set)
 {
     LOG_FN(DEBUG, "%d, \"%s\"", nr_ranks, profile);

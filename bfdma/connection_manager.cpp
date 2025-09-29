@@ -6,7 +6,7 @@ void socket_init(NetParam &net_param) {
     if (net_param.sock_port == 0) {
         net_param.sock_port = 6666;
     }
-
+    net_param.serverIp = "127.0.0.1";
     if (net_param.nodeId == 0) {
         printf("\n************************************\n");
         printf("* Waiting for client to connect... *\n");
@@ -18,6 +18,7 @@ void socket_init(NetParam &net_param) {
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
         assert(getaddrinfo(NULL, std::to_string(net_param.sock_port).c_str(), &hints, &server_address) >= 0);
+        std::cout<< "IP address is: " << net_param.serverIp << ", binding to port: " << net_param.sock_port << std::endl;
         auto sockfd = socket(server_address->ai_family, server_address->ai_socktype, server_address->ai_protocol);
         assert(sockfd > 0);
         int reuse = 1;

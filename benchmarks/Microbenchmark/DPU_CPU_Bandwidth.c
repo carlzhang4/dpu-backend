@@ -3,6 +3,8 @@
  * found in the LICENSE file.
  */
 #include <dpu.h>
+#include <dpu_types.h>
+#include <dpu_rank.h>
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -62,9 +64,26 @@ int test(uint32_t nr_dpus,uint32_t test_size){
         original_data[i] = i;//rand() % 16;
     }
 
+    printf("DPU 2 CPU and CPU 2 DPU Bandwidth Test\n");
+    //DPU_ASSERT(dpu_alloc_one_per_dpu(nr_dpus, "nrThreadPerPool=1", &set));
     DPU_ASSERT(dpu_alloc(nr_dpus, "nrThreadPerPool=1", &set));
+    printf("alloc done\n");
+    for(int i=0;i<nr_dpus;i++){
+        printf("*************\n");
+        struct dpu_t *dpu = &(set.dpu[i]);
+            dpu_slice_id_t slice_id = dpu->slice_id;
+            dpu_member_id_t dpu_id = dpu->dpu_id;
+
+            printf("slice_id : %d, dpu_id : %d\n",(uint8_t)slice_id,(uint8_t)dpu_id);
+    }
+    getchar();
+    printf("DPU allocated\n");
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+
+    uint32_t nr_ranks = set.list.nr_ranks;
+    printf("nr_ranks: %d\n", nr_ranks);
+    printf("nr_dpus: %d\n",((set.list.ranks)[0])->nr_dpus_enabled);
 
     DPU_FOREACH(set, dpu, each_dpu){
         DPU_ASSERT(dpu_prepare_xfer(dpu, &original_data[each_dpu * data_num_per_dpu]));
@@ -120,8 +139,8 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 int main()
 {
     // for(uint32_t i=1;i<=1024;i*=2){
-        for(uint32_t j=8;j<=4*1024*1024;j*=2){
-            test(8,j);
+        for(uint32_t j=64;j<=4*32*1024*1024;j*=2){
+            test(4,j);
         }
     // }
     // test(8,4194304);

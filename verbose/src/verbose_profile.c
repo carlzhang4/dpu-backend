@@ -40,12 +40,12 @@ get_log_level_from_string(const char *string)
         case 'i':
         case 'I':
         case '2':
-            return INFO;
+            return NINFO;
 
         case 'd':
         case 'D':
         case '3':
-            return DEBUG;
+            return NDEBUG;
 
         case 'v':
         case 'V':
