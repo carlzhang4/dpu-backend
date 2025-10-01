@@ -313,7 +313,8 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	
 
 	uint64_t KEY_OFFSET = get_dpu_addr(0,0,0);
-	uint64_t VALUE_OFFSET = get_dpu_addr(0,0,8*1024);
+	uint64_t MAGIC_OFFSET = KEY_SIZE*REQUEST_PER_DPU*16/64+64;
+	uint64_t TRANSFER_LENGTH = MAGIC_OFFSET*16+64;
 	
 
     std::cout << "end receive !"<<std::endl;
@@ -326,7 +327,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	uint64_t t1,t2,t3,t4,t5,t6;
 	uint64_t t[4];
 	uint64_t d1=0,d2=0,d3=0,d4=0,d5=0;
-	uint64_t request_offset = KEY_OFFSET, response_offset = VALUE_OFFSET;
+	uint64_t request_offset = KEY_OFFSET;
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	uint8_t magic_number = 1;
@@ -336,12 +337,12 @@ void benchmark_KVStore_client(NetParam &net_param) {
         
 		std::cout <<"start setting address is : "<<std::hex<<(void*)get_dpu_addr(0,0,1000)<<std::dec<<std::endl;
 		for(int j=0;j<8;j++){
-			((char**)bufs)[0][get_dpu_addr(j,0,8184)] = magic_number;
+			((char**)bufs)[0][get_dpu_addr(j,0,MAGIC_OFFSET)] = magic_number;
 
 		}
 		
 		t1 = get_tscp();
-		post_send(*qp_handlers[0], request_offset, 128*1024);
+		post_send(*qp_handlers[0], request_offset, TRANSFER_LENGTH);
 		while(!poll_send_cq(*qp_handlers[0], wc_send));
 		t2 = get_tscp();
 		
@@ -351,7 +352,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 		
 		while(!all_done){
 			for(int j=0;j<total_dpu_num;j++){
-				resp_valid[j] = value_buf[get_dpu_addr(j,0,8184)];
+				resp_valid[j] = value_buf[get_dpu_addr(j,0,MAGIC_OFFSET)];
 			}
 			all_done = true;
 			for(int j=0;j<total_dpu_num;j++){
@@ -363,61 +364,15 @@ void benchmark_KVStore_client(NetParam &net_param) {
 			
 		}
 		magic_number++;
-		//std::cout << "Received response for key: " << i << std::endl;
 		t6 = get_tscp();
-		// bytes_recv = recv(net_param.sockfd[0], t, sizeof(uint64_t)*4, 0);
-		// t2 = t[0];
-		// t3 = t[1];
-		// t4 = t[2];
-		// t5 = t[3];
-		// d1 += t2 - t1;
-		// d2 += t3 - t2;
-		// d3 += t4 - t3;
-		// d4 += t5 - t4;
-		// d5 += t6 - t5;
 		if(i>= warm_up){
 			d1 += t6 - t1;
 			d2 += t2 - t1;
 		}
-		
-
-		//* verify response byte by byte
-		// for(int j=0;j<total_dpu_num;j++){
-		// 	for(int k=0;k<REQUEST_PER_DPU;k++){
-		// 		uint64_t value = (k)%MAX_HASH_ENTRY_NUM;
-		// 		for(int l=0;l<VALUE_SIZE;l++){
-		// 			if(value_buf[get_dpu_addr(j,0,8192+k*VALUE_SIZE+l)-get_dpu_addr(0,0,8192)] != ((char*)&value)[l]){
-		// 				std::cout << "Value mismatch at DPU " << j << ", request " << k << ", byte " << l << ": expected " << (int)((char*)&value)[l] << ", got " << (int)value_buf[get_dpu_addr(j,0,8192+k*VALUE_SIZE+l)-get_dpu_addr(0,0,8192)] << std::endl;
-		// 				//assert(false && "Value mismatch.");
-		// 			}
-		// 		}
-		// 	}
-		// }
-
-		// request_offset += (REQUEST_PER_DPU * KEY_SIZE+sizeof(uint64_t));
-		// response_offset += (REQUEST_PER_DPU * VALUE_SIZE+sizeof(uint64_t));
-		// for(int j = 0; j < REQUEST_PER_DPU; ++j) {
-		// 	// resp = (struct response_message *)((char*)response_msg + (i + j) * sizeof(response_message));
-		// 	//std::cout << "Received response for key: " << *(uint64_t*)resp->key << std::endl;
-		// 	//std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
-		// 	uint64_t value = (i+j)%MAX_HASH_ENTRY_NUM;
-		// 	// std::cout << "Received response for key: " << value << std::endl;
-		// 	// std::cout << "received value: " << *(uint64_t*)resp << std::endl;
-		// 	assert(memcmp(resp, &value, sizeof(i)) == 0 && "Value mismatch.");
-		// 	resp += VALUE_SIZE;
-		// }
-		//assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
 	}
 	char end_buf[10];
-	//recv(net_param.sockfd[0], end_buf, sizeof(uint64_t)*4, 0);
 	send(net_param.sockfd[0], end_buf, sizeof(end_buf), 0);
 	memset(end_buf, 0, sizeof(end_buf));
-	//std::cout << "All key-value pairs verified successfully." << std::endl;
-	// std::cout << "duration 1: " << (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU<< "us" << std::endl;
-	// std::cout << "duration 2: " << (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	// std::cout << "duration 3: " << (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	// std::cout << "duration 4: " << (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	// std::cout << "duration 5: " << (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
 	std::cout << "RDMA duration: " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
 	std::cout << "total duration: " << (double)(d1)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
 	
@@ -475,13 +430,7 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		std::cout << "slice_id_array["<<i<<"]: " << slice_id_array[i] << " dpu_array["<<i<<"]: " << dpu_array[i] << std::endl;
 	}
 
-	//bank_list();
-	// bufs[0] = malloc_2m_numa(BUF_SIZE, net_param.numa_node);
-		
-	// 	for (int j = 0;j < BUF_SIZE / static_cast<int>(sizeof(int));j++) {
-	// 		//(reinterpret_cast<int **> (bufs))[i][j] = 1;
-	// 		((char**)bufs)[0][j] = 0;
-	// 	}
+	
 
 	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
 		auto& rank = it->second;
@@ -490,14 +439,9 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		auto addr = rank.base_region_addr;
 		bufs[0] = (void*)addr;
 		std::cout << "BUF0 Address : "<<bufs[0]<<std::endl;
-	// 	//uint64_t buffer_size = 64;
-	// 	//void* cpu_memory = (void*)malloc(buffer_size);
-	// 	// export_buffer(bufs[0], 256*1024*1024);
-	// 	//export_pim(net_param, bufs[0], 256*1024*1024,0);
-		
 	}
 
-	// bufs[0] = malloc_2m_numa(256*1024*1024, net_param.numa_node);
+	
 	QpHandler **qp_handlers = new QpHandler * [1]();
 	qp_handlers[0] = create_qp_rc(net_param, bufs[0], BUF_SIZE, info + 0, 0);
 
@@ -505,34 +449,16 @@ void benchmark_KVStore_server(NetParam &net_param) {
 	write(net_param.sockfd[1], info, sizeof(PingPongInfo) );
 	connect_qp_rc(net_param, *qp_handlers[0], info + 1 , info );
 
-	
-
-	
 
 	printf("\nstart copy_to\n");
-	// DPU_FOREACH(set,dpu){
-	// 	// copy_to(dpu,"iteration_num", (void*)&ITERATIONS, sizeof(int));
-	// 	// copy_to(dpu,"request_key_size", (void*)&REQUEST_PER_DPU, sizeof(int));
-	// 	DPU_ASSERT(dpu_copy_to(dpu, "iteration_num", 0, &ITERATIONS, sizeof(int)));
-	// 	DPU_ASSERT(dpu_copy_to(dpu, "request_key_size", 0, &REQUEST_PER_DPU, sizeof(int)));
-	// }
 	//**************** */
 
 	//* help BF establish RDMA connection with client
-	
-	// bufs[1] = malloc_2m_numa(BUF_SIZE, net_param.numa_node);
-	// for (int j = 0;j < BUF_SIZE / static_cast<int>(sizeof(int));j++) {
-	// 	(reinterpret_cast<int **> (bufs))[1][j] = 0;
-	// }
 	
 	for(auto it = _ranks.begin(); it != _ranks.end(); ++it){
 		auto& rank = it->second;
 		rank.open_access();
 		auto addr = rank.base_region_addr;
-		// auto addr = (uint64_t)bufs[0];
-		//uint64_t buffer_size = 64;
-		//void* cpu_memory = (void*)malloc(buffer_size);
-		//export_buffer((void*)cpu_memory, buffer_size);
 		export_pim(net_param, (void*)addr, 256*1024*1024,1);
 	}
 	vhca_resource* client_resource = new vhca_resource[1];
@@ -543,23 +469,7 @@ void benchmark_KVStore_server(NetParam &net_param) {
 	write(net_param.sockfd[2], &(client_resource[0]), sizeof(vhca_resource));
 
 
-	
-
-
-
-	
-	std::cout << "RDMA connection with client established" << std::endl;
 	__builtin_ia32_mfence();
-	
-	// read(net_param.sockfd[1], &(info[2]), sizeof(PingPongInfo) );
-	// write(net_param.sockfd[2], &(info[2]), sizeof(PingPongInfo) );
-	// size_t bytes_ = read(net_param.sockfd[2], &(info[3]), sizeof(PingPongInfo) );
-	// std::cout << "bytes_ = " << bytes_ <<" size of PingPongInfo = " << sizeof(PingPongInfo) << std::endl;
-	// write(net_param.sockfd[1], &(info[3]), sizeof(PingPongInfo) );
-	std::cout << "RDMA connection between client and BF established" << std::endl;
-	
-	
-	
 	
 	
 	//* establish DMA connection with  BF
@@ -568,17 +478,9 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		rank.open_access();
 
 		auto addr = rank.base_region_addr;
-		// auto addr = (uint64_t)bufs[0];
-		//uint64_t buffer_size = 64;
-		//void* cpu_memory = (void*)malloc(buffer_size);
-		//export_buffer((void*)cpu_memory, buffer_size);
 		export_pim(net_param, (void*)addr, 256*1024*1024,2);
 		std::cout << "PIM Address : "<<addr<<std::endl;
 	}
-	
-
-	
-
 
 	std::cout << "Start to send dpu info to client side" << std::endl;
 	send(net_param.sockfd[1],  &num_dpus, sizeof(int), 0); 
@@ -599,45 +501,6 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		//std::cout << "slice_id: " << slice_id_array[i] << ", dpu_id: " << dpu_array[i] << std::endl;
 	}
 
-	
-	
-	// for(int i=0;i<8;i++){
-	// 	bank_write_test(i,0,1);
-	// }
-	// std::cout << "DPU write init done" << std::endl;
-	// sleep(10);
-	// uint8_t test_buffer[64];
-	// for(int i=0;i<8;i++){
-	// 	int j=8184;
-	// 		std::cout<<"reading dpu "<<i<<" offset "<<j<<"value is : "<<( int)bank_read_test(i,j)<<std::endl;
-		
-	// }
-
-	// for(int i=0;i<8;i++){
-	// 	int j=8192+8184;
-	// 		std::cout<<"reading dpu "<<i<<" offset "<<j<<"value is : "<<( int)bank_read_test(i,j)<<std::endl;
-		
-	// }
-
-	//* print 64 bytes of bufs[1]
-
-	
-	// for(int i=0;i<8;i++){
-	// 	// std::cout<<"reading dpu "<<i<<" offset 8184 value is : "<<( int)bank_read_test(i,8184)<<std::endl;
-	// 	int j=4096;
-	// 		std::cout<<"reading dpu "<<i<<" offset "<<j<<" value is : "<<( int)bank_read_test(i,j)<<std::endl;
-		
-	// }
-	// for(int i=0;i<8;i++){
-	// 	int j=4096;
-	// 	std::cout<<"reading dpu "<<i<<" offset "<<j<<" value is : "<<static_cast<int>(((char**)bufs)[0][get_dpu_addr(i,0,j)])<<std::endl;
-	// }
-	
-	// DPU_ASSERT(dpu_launch(set, DPU_ASYNCHRONOUS));
-	// DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
-
-
-	
 
 	char end_buf[10];
 	std::cout << "Start to wait client finish signal" << std::endl;

@@ -103,12 +103,12 @@ target_compile_definitions(kvstore_test PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION
 set_target_properties(kvstore_test PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_test gen_files)
 
-add_executable(kvstore_cpu  ./kvstore_cpu.cpp ${ALL_DPU_SOURCES} ${SRCS})  
-target_include_directories(kvstore_cpu PUBLIC ${INCLUDE_DIRECTORIES} )     
-target_link_libraries(kvstore_cpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-target_compile_definitions(kvstore_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(kvstore_cpu PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(kvstore_cpu gen_files)
+# add_executable(kvstore_cpu  ./kvstore_cpu.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+# target_include_directories(kvstore_cpu PUBLIC ${INCLUDE_DIRECTORIES} )     
+# target_link_libraries(kvstore_cpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+# target_compile_definitions(kvstore_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+# set_target_properties(kvstore_cpu PROPERTIES VERSION ${UPMEM_VERSION})
+# add_dependencies(kvstore_cpu gen_files)
 
 add_executable(kvstore_pim  ./kvstore_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})  
 target_include_directories(kvstore_pim PUBLIC ${INCLUDE_DIRECTORIES} )     
@@ -160,6 +160,15 @@ target_link_libraries(kvstore_pimnic_validate  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_
 target_compile_definitions(kvstore_pimnic_validate PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(kvstore_pimnic_validate PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_pimnic_validate gen_files)
+
+
+add_executable(kvstore_cpu  ./kvstore_cpu.cpp  ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/SipHash.h ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/xxHash64.h ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_cpu PUBLIC ${INCLUDE_DIRECTORIES}  ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include)     
+target_link_libraries(kvstore_cpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_cpu PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_cpu gen_files)
+
 
 #Device target
 set(INPUT_kvstore_device "${CMAKE_CURRENT_SOURCE_DIR}/kvstore_device.c")

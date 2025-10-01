@@ -160,12 +160,14 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t request_offset = 0, response_offset = 0;
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	int warm_up = 5;
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
 		t1 = get_tscp();
 		// std::cout << "Sending request for key: " << i << std::endl;
 		// std::cout << "request_offset: " << request_offset << std::endl;
 		//std::cout << " rdma write request size: " << REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t) << std::endl;
 		post_send(*handler, request_offset, REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t));
+		//std::cout << "RDMA SIZE : "<<REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t)<<std::endl;
 		while(!poll_send_cq(*handler, wc_send));
 
 		//std::cout << "Sent request for key: " << i << std::endl;
@@ -180,11 +182,14 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 		t3 = t[1];
 		t4 = t[2];
 		t5 = t[3];
-		d1 += t2 - t1;
-		d2 += t3 - t2;
-		d3 += t4 - t3;
-		d4 += t5 - t4;
-		d5 += t6 - t5;
+		if(i>= warm_up){
+			d1 += t2 - t1;
+			d2 += t3 - t2;
+			d3 += t4 - t3;
+			d4 += t5 - t4;
+			d5 += t6 - t5;
+		}
+		
 		request_offset += (REQUEST_PER_DPU * KEY_SIZE+sizeof(uint64_t));
 		response_offset += (REQUEST_PER_DPU * VALUE_SIZE+sizeof(uint64_t));
 		// for(int j = 0; j < REQUEST_PER_DPU; ++j) {
@@ -203,12 +208,12 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	recv(net_param.sockfd[0], end_buf, sizeof(uint64_t)*4, 0);
 	memset(end_buf, 0, sizeof(end_buf));
 	std::cout << "All key-value pairs verified successfully." << std::endl;
-	std::cout << "duration 1: " << (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU<< "us" << std::endl;
-	std::cout << "duration 2: " << (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	std::cout << "duration 3: " << (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	std::cout << "duration 4: " << (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	std::cout << "duration 5: " << (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
-	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS*REQUEST_PER_DPU << "us" << std::endl;
+	std::cout << "duration 1: " << (double)d1/2.1/1000/(ops/REQUEST_PER_DPU-warm_up)<< "us" << std::endl;
+	std::cout << "duration 2: " << (double)d2/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
+	std::cout << "duration 3: " << (double)d3/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
+	std::cout << "duration 4: " << (double)d4/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
+	std::cout << "duration 5: " << (double)d5/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
+	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
 	
 	fprintf(fp,"%ld %lf %lf %lf %lf %lf %lf\n",REQUEST_PER_DPU, (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS*REQUEST_PER_DPU);
 	fclose(fp);
