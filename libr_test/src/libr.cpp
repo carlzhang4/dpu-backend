@@ -598,9 +598,14 @@ void post_send(QpHandler &qp_handler, size_t offset, int length) {
 
 	// fuck https://github.com/linux-rdma/rdma-core/blob/6cd09097ad2eebde9a7fa3d3bb09a2cea6e3c2d6/providers/rxe/rxe.c#L1665-L1666
 	//assert(ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr) == 0);
+	// std::cout <<"*********************************"<<std::endl;
+	// std::cout <<"post_send: " << qp_handler.send_wr->wr_id << std::endl;
+	// std::cout <<"lkey : " << qp_handler.send_wr->wr.rdma.rkey << " remote addr: "<<std::hex<< qp_handler.send_wr->wr.rdma.remote_addr << std::dec<<" length : " << length << std::endl;
+
 	int ret = ibv_post_send(qp_handler.qp, qp_handler.send_wr, &qp_handler.send_bar_wr);
 	if (ret != 0) {
 		std::cout <<"ret: " << ret << std::endl;
+		std::cout <<"error: " << strerror(errno) << std::endl;
 		// 进一步处理错误...
 	}
 	// qp_handler.send_wr[0].send_flags = IBV_SEND_SIGNALED;

@@ -154,12 +154,12 @@ add_dependencies(kvstore_pimnic_host gen_files)
 
 
 
-add_executable(kvstore_pimnic_validate  ./kvstore_pimnic_validate.cpp ${ALL_DPU_SOURCES} ${SRCS})  
-target_include_directories(kvstore_pimnic_validate PUBLIC ${INCLUDE_DIRECTORIES} )     
-target_link_libraries(kvstore_pimnic_validate  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-target_compile_definitions(kvstore_pimnic_validate PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
-set_target_properties(kvstore_pimnic_validate PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(kvstore_pimnic_validate gen_files)
+add_executable(kvstore_pimnic_host_varidpu  ./kvstore_pimnic_host_varidpu.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pimnic_host_varidpu PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pimnic_host_varidpu  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pimnic_host_varidpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pimnic_host_varidpu PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pimnic_host_varidpu gen_files)
 
 
 add_executable(kvstore_cpu  ./kvstore_cpu.cpp  ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/SipHash.h ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/xxHash64.h ${ALL_DPU_SOURCES} ${SRCS})  

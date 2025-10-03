@@ -165,6 +165,8 @@ void bank_import(int* slice_id_array, int* dpu_array, int* num_dpus){
 			slice_id_array[dpu.index] = dpu.slice_id;
 			dpu_array[dpu.index] = dpu.dpu_id;
 			(*num_dpus)++;
+			// printf("Import DPU index: %d (DPU ID: %d, Slice ID: %d)\n", dpu.index, dpu.dpu_id, dpu.slice_id);
+			// printf("DPU base_region_addr: %lx\n", dpu.base_region_addr);
 		}
     }
 }
