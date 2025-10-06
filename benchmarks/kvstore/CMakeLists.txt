@@ -297,3 +297,5 @@ add_custom_target(
   DEPENDS ${OUTPUT_kvstore_pimnic}
   DEPENDS ${ALL_OUTPUTS}
 )
+
+add_subdirectory(YCSB-C)
