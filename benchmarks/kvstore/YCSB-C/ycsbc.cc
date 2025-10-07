@@ -83,17 +83,17 @@ int main(const int argc, const char *argv[]) {
   // Loads data
   vector<future<int>> actual_ops;
   int total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
-  // for (int i = 0; i < num_threads; ++i) {
-  //   actual_ops.emplace_back(async(launch::async,
-  //       DelegateClient, db, &wl, total_ops / num_threads, true));
-  // }
-  // assert((int)actual_ops.size() == num_threads);
+  for (int i = 0; i < num_threads; ++i) {
+    actual_ops.emplace_back(async(launch::async,
+        DelegateClient, db, &wl, total_ops / num_threads, true));
+  }
+  assert((int)actual_ops.size() == num_threads);
 
   int sum = 0;
-  // for (auto &n : actual_ops) {
-  //   assert(n.valid());
-  //   sum += n.get();
-  // }
+  for (auto &n : actual_ops) {
+    assert(n.valid());
+    sum += n.get();
+  }
   cerr << "# Loading records:\t" << sum << endl;
   getchar();
   // Peforms transactions

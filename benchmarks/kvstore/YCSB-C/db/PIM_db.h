@@ -41,10 +41,20 @@
 using std::cout;
 using std::endl;
 
+
+
 namespace ycsbc {
 
 class PIMDB : public DB {
  public:
+
+  struct kv_update_request {
+      size_t total_size;
+      size_t key_size;
+      std::string key;
+      std::vector<KVPair> values;
+      
+  };
   PIMDB(NetParam &net_param);
 
   int Read(const std::string &table, const std::string &key,

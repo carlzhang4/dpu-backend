@@ -18,6 +18,7 @@ struct kv_entry {
     void* key_value_pointer;
     size_t key_value_size;
     size_t key_size;
+    size_t value_size;
 };
 
 struct key_value_extent {
