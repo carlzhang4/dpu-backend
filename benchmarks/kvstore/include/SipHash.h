@@ -63,6 +63,9 @@
 #define TRACE
 #endif
 
+
+#ifndef SIPHASH_H
+#define SIPHASH_H
 /*
     Computes a SipHash value
     *in: pointer to input data (read-only)
@@ -176,3 +179,5 @@ int siphash(const void *in, const size_t inlen, const void *k, uint8_t *out,
 
     return 0;
 }
+
+#endif

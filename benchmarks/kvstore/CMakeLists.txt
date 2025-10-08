@@ -124,6 +124,13 @@ target_compile_definitions(kvstore_ycsbc_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VE
 set_target_properties(kvstore_ycsbc_cpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_ycsbc_cpu gen_files)
 
+add_executable(kvstore_ycsbc_pim  ./kvstore_ycsbc_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_ycsbc_pim PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_ycsbc_pim  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_ycsbc_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_ycsbc_pim PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_ycsbc_pim gen_files)
+
 add_executable(kvstore_pim_multitasklets  ./kvstore_pim_multitasklets.cpp ${ALL_DPU_SOURCES} ${SRCS})  
 target_include_directories(kvstore_pim_multitasklets PUBLIC ${INCLUDE_DIRECTORIES} )     
 target_link_libraries(kvstore_pim_multitasklets  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
@@ -290,6 +297,17 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_kvstore_pimnic}"
 )
 
+set(INPUT_kvstore_pim_ycsb "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_pim_ycsb.c")
+set(OUTPUT_kvstore_pim_ycsb "kvstore_pim_ycsb")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_pim_ycsb}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_pim_ycsb} -o ${OUTPUT_kvstore_pim_ycsb}
+  DEPENDS ${INPUT_kvstore_pim_ycsb}
+  COMMENT "Generating ${OUTPUT_kvstore_pim_ycsb}"
+)
+
+
 add_custom_target(
   generate_output_files_kvstore
   ALL
@@ -302,6 +320,7 @@ add_custom_target(
   DEPENDS ${OUTPUT_kvstore_get_device_profile}
   DEPENDS ${OUTPUT_kvstore_get_device_tasklets_parallel}
   DEPENDS ${OUTPUT_kvstore_pimnic}
+  DEPENDS ${OUTPUT_kvstore_pim_ycsb}
   DEPENDS ${ALL_OUTPUTS}
 )
 

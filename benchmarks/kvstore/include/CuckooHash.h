@@ -27,6 +27,12 @@ struct KVhashtable{
 
 class CuckooHash {
 public:
+    std::vector<KVhashtable*> KVHashTable_vec;
+    std::vector<uint64_t> KVhashtableSize;
+    // std::vector<std::vector<bool>> entry_used;
+    std::vector<char*> value_storage;
+    std::vector<size_t> value_storage_used;
+
     typedef std::pair<std::string, std::string> KVPair;
     CuckooHash(size_t table_size, hash_function* hash_funcs, size_t hash_func_num);
     ~CuckooHash();
@@ -36,7 +42,7 @@ public:
     void print_entry_sizes();
     int receive_and_update(int sockfd);
     void parse_values_fixed(const std::vector<char>& data, std::vector<KVPair>& out);
-    
+    size_t get_value_slot_size();
 private:
     
 
@@ -51,11 +57,7 @@ private:
   
 
     size_t table_size;
-    std::vector<KVhashtable*> KVHashTable_vec;
-    std::vector<uint64_t> KVhashtableSize;
-    // std::vector<std::vector<bool>> entry_used;
-    std::vector<char*> value_storage;
-    std::vector<size_t> value_storage_used;
+
     hash_function* hash_functions;
     std::vector<size_t> entry_sizes;
     size_t hash_function_num;

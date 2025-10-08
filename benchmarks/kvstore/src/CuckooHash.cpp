@@ -337,9 +337,15 @@ int CuckooHash::Read(const std::string &key,std::vector<KVPair> &result) {
 
             // 4. 解析值并填充结果
             parse_values_fixed(value_data, result);
+            // std::cout << "Found key: " << key << " with " << result.size() << " values." << std::endl;
+            // std::cout << "find key at table " << t << ", index " << idx << std::endl;
             return 0;
         }
     }
     // 未找到对应的键
     return -1;
+}
+
+size_t CuckooHash::get_value_slot_size() {
+    return VALUE_SLOT_SIZE;
 }

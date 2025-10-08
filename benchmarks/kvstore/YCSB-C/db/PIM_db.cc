@@ -169,7 +169,7 @@ int PIMDB::Update(const std::string &table, const std::string &key,
                   
     // std::cout << "PIMDB::Update: key=" << key << " values.size=" << values.size() << std::endl;
     // for(const auto& kv : values) {
-    //     std::cout << "  field=" << kv.first << " value=" << kv.second << std::endl;
+    //     std::cout << "  field=" << kv.first << " value size=" << kv.second.size() << std::endl;
     // }
     
     uint64_t num_values = static_cast<uint64_t>(values.size());
