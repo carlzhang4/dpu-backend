@@ -45,13 +45,12 @@ extern "C" {
 #include "KVStore_Config.h"
 #include "xxHash64.h"
 #include "SipHash.h"
+#include "hash_functions.h"
 
 //It is necessary to load a DPU binary file into the DPU prior to data transfer.
 #ifndef DPU_BINARY_USER
 #define DPU_BINARY_USER "../build/benchmarks/kvstore/kvstore_get_device_tasklets_parallel_"
 #endif
-
-
 
 
 
@@ -82,11 +81,11 @@ uint64_t MAX_HASH_ENTRY_NUM = 100000;
 int REQUEST_PER_DPU = 1;
 
 
-uint64_t hash_func1(const char* key, size_t len) {
-    uint64_t hash=0; 
-    memcpy(&hash, key, len);
-    return hash;
-}
+// uint64_t hash_func1(const char* key, size_t len) {
+//     uint64_t hash=0; 
+//     memcpy(&hash, key, len);
+//     return hash;
+// }
 
 struct get_message
 {
@@ -119,15 +118,16 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t request_offset = 0, response_offset = ((REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t))/(4UL*1024) +1)*4UL*1024;
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
-	int warm_up = 5;
+	int warm_up = 1;
 	uint64_t magic_number =1;
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
-		t1 = get_tscp();
+		
 		for(int j = 0; j < REQUEST_PER_DPU; ++j) {
 			uint64_t tmp_i = i + j;
 			memcpy((char*)buf + request_offset  + j * KEY_SIZE, &tmp_i, KEY_SIZE);
 		}
 		memcpy((char*)buf + request_offset + REQUEST_PER_DPU * KEY_SIZE, &magic_number, sizeof(uint64_t));
+		t1 = get_tscp();
 		post_send(*handler, request_offset, REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t));
 		while(!poll_send_cq(*handler, wc_send));
 
@@ -158,7 +158,10 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	std::cout << "duration 2: " << (double)d2/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
 	std::cout << "duration 3: " << (double)d3/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
 	std::cout << "total duration: " << (double)(d1+d2+d3)/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
-	
+	std::ofstream latency_file;
+	latency_file.open("kvstore_cpu_latency.txt", std::ios::app);
+	latency_file  <<REQUEST_PER_DPU << " " << (double)d1/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d2/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d3/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)(d1+d2+d3)/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << std::endl;
+	latency_file.close();
 	
 }
 
@@ -190,6 +193,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t magic_number =1;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
+			
 			//std::cout << "Processing request for key: " << i << std::endl;
 			//* polling for get message
 			uint64_t* request_valid = (uint64_t*)((char*)buf + request_offset + REQUEST_PER_DPU * KEY_SIZE);
@@ -202,12 +206,74 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			
 			for(int j=0;j<REQUEST_PER_DPU;j++){
 				uint64_t request_key;
-				memcpy(&request_key, (char*)buf + request_offset + j * KEY_SIZE, KEY_SIZE);
+				//memcpy(&request_key, (char*)buf + request_offset + j * KEY_SIZE, KEY_SIZE);
 				//* Calculate the hash entry index
-				uint64_t hash_index = XXH64((const char*)&request_key, KEY_SIZE, 0) % MAX_HASH_ENTRY_NUM;
-				memcpy(resp + j * VALUE_SIZE, key_entry_array[hash_index].value, VALUE_SIZE);
+				
+				// uint64_t hash_index = XXH64((const char*)&request_key, KEY_SIZE, 0) % MAX_HASH_ENTRY_NUM;
+				uint64_t hash_index;
+				//* generate a random int number between 0-15
+				uint8_t rand_num = rand() % 16 ;
+				// siphash((const char*)&request_key, KEY_SIZE, hash_key, (uint8_t*)&hash_index, 8);
+				// hash_index = hash_index % MAX_HASH_ENTRY_NUM;
+				for(int k=0;k<rand_num;k++){
+					switch (k)
+					{
+						case 0:
+							hash_index =hash_func1((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 1:
+							hash_index =hash_func2((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 2:
+							hash_index =hash_func3((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 3:
+							hash_index =hash_func4((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 4:
+							hash_index =hash_func5((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 5:
+							hash_index =hash_func6((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 6:
+							hash_index =hash_func7((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 7:
+							hash_index =hash_func8((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 8:
+							hash_index =hash_func9((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 9:
+							hash_index =hash_func10((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 10:
+							hash_index =hash_func11((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 11:
+							hash_index =hash_func12((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 12:
+							hash_index =hash_func13((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 13:
+							hash_index =hash_func14((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 14:
+							hash_index =hash_func15((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						case 15:
+							hash_index =hash_func16((const char*)&request_key, KEY_SIZE)%MAX_HASH_ENTRY_NUM;
+							break;
+						default:
+							break;
+					}
+				}
+				//memcpy(resp + j * VALUE_SIZE, key_entry_array[hash_index].value, VALUE_SIZE);
 			}
 			// std::cout << "rsp valid offset: " << (char*)resp + REQUEST_PER_DPU * VALUE_SIZE - (char*)buf << std::endl;
+			
 			*(uint64_t*)(resp + REQUEST_PER_DPU * VALUE_SIZE) = magic_number; // mark response as valid
 			
 			t[1] = get_tscp();
@@ -233,7 +299,7 @@ void benchmark(NetParam &net_param) {
 	if(BUF_SIZE <= 4096){
 		BUF_SIZE = 4096*2;
 	}
-	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
+	size_t ops = size_t(1) * ITERATIONS ;
 	LOG_I("OPS : [%ld]", ops);
 
 	PingPongInfo *info = new PingPongInfo[net_param.numNodes * NUM_THREADS]();

@@ -12,7 +12,7 @@
 #define VALUE_SIZE 8
 #define MAX_EXTENT_SIZE (32UL * 1024 * 1024) // 32MB
 #define MAX_REQUEST_PER_DPU 1000
-#define TOTAL_KV_ENTRIES (MAX_EXTENT_SIZE / (KEY_SIZE + VALUE_SIZE))
+#define TOTAL_KV_ENTRIES (MAX_EXTENT_SIZE / (64 ))
 
 #ifndef TOTAL_TASKLETS
 #define TOTAL_TASKLETS 1
@@ -39,8 +39,8 @@ char hash_key[16] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 uint64_t hash_func1(const char* key, size_t len) {
     uint64_t hash=0; 
     //memcpy(&hash, key, KEY_SIZE);
-    hash = XXH64(key, KEY_SIZE, 0);
-    //siphash(key, KEY_SIZE, hash_key, (uint8_t*)&hash, 8);
+    // hash = XXH64(key, KEY_SIZE, 0);
+    siphash(key, KEY_SIZE, hash_key, (uint8_t*)&hash, 8);
     return hash;
 }
 
