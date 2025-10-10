@@ -4,6 +4,6 @@ do
     for i in {1..3}
     do
         echo "Run $i"
-        ../build/benchmarks/kvstore/kvstore_pim  -serverIp=127.0.0.1 -max_hash_entry_num=10000 -dpu_num 16 -parallel_tasklets 14 -iterations=$((N*2)) -request_per_dpu=$N
+        ../build/benchmarks/kvstore/kvstore_pim  -serverIp=127.0.0.1 -max_hash_entry_num=10000 -dpu_num 16 -parallel_tasklets 16 -iterations=$((N*10)) -request_per_dpu=$N
     done
 done

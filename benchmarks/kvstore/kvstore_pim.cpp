@@ -144,6 +144,7 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 			memcpy(tmp, &tmp_i, sizeof(tmp_i));
 			tmp += KEY_SIZE;
 		}
+		*(uint64_t*)(tmp-sizeof(uint64_t)) = i+1;
 		
 	}
 	char start_buf[10];
@@ -160,21 +161,22 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t request_offset = 0, response_offset = 0;
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
-	int warm_up = 0;
+	int warm_up = 1;
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
 		t1 = get_tscp();
-		//std::cout << "Sending request for key: " << i << std::endl;
+		// std::cout << "Sending request for key: " << i << std::endl;
 		// std::cout << "request_offset: " << request_offset << std::endl;
 		//std::cout << " rdma write request size: " << REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t) << std::endl;
+		*(uint64_t*)((char*)get_msg + request_offset + REQUEST_PER_DPU * KEY_SIZE) = 2*i+1;
 		post_send(*handler, request_offset, REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t));
 		//std::cout << "RDMA SIZE : "<<REQUEST_PER_DPU*KEY_SIZE+sizeof(uint64_t)<<std::endl;
 		while(!poll_send_cq(*handler, wc_send));
 
-		//std::cout << "Sent request for key: " << i << std::endl;
+		// std::cout << "Sent request for key: " << i << std::endl;
 		char *resp = ((char*)response_msg + response_offset);
 		//std::cout << "polling response at offset: " << resp-(char*)buf << std::endl;
 		uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
-		while(*resp_valid == 0);
+		while(*resp_valid != 2*i+2);
 		//std::cout << "Received response for key: " << i << std::endl;
 		t6 = get_tscp();
 		bytes_recv = recv(net_param.sockfd[0], t, sizeof(uint64_t)*4, 0);
@@ -255,7 +257,8 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 		DPU_ASSERT(dpu_prepare_xfer(dpu,key_entry_array));
 	}
 	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
-	
+	uint64_t total_request_num = REQUEST_PER_DPU;
+	DPU_ASSERT(dpu_broadcast_to(set, "total_request_num", 0, (const void *)&total_request_num, sizeof(total_request_num), DPU_XFER_DEFAULT));
 	char start_buf[10];
 	int bytes_sent = send(net_param.sockfd[1], start_buf, sizeof(start_buf), 0);
 	if (bytes_sent < 0) {
@@ -269,16 +272,16 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
-			//std::cout << "Processing request for key: " << i << std::endl;
+			// std::cout << "Processing request for key: " << i << std::endl;
 			//* polling for get message
-			uint64_t* request_valid = (uint64_t*)((char*)get_msg +request_offset);
-			while(*request_valid == 0);
-			*request_valid = REQUEST_PER_DPU;
+			uint64_t* request_valid = (uint64_t*)((char*)get_msg +request_offset + REQUEST_PER_DPU * KEY_SIZE);
+			while(*request_valid != 2*i+1);
+			// *request_valid = REQUEST_PER_DPU;
 			// for(int j=0;j<REQUEST_PER_DPU;j++){
 			// 	std::cout << "Processing request for key: " << *(uint64_t*)(get_msg + request_offset + j * KEY_SIZE + sizeof(uint64_t)) << std::endl;
 			// }
 			t[0] = get_tscp();
-			//std::cout << "Received request for key: " << *(uint64_t*)get_msg[i].key << std::endl;
+			// std::cout << "Received request for key: " << *(uint64_t*)(get_msg + request_offset + sizeof(uint64_t)) << std::endl;
 			//uint64_t request_key;
 			char *resp = ((char*)response_msg +response_offset);
 			*(uint64_t*)(resp +REQUEST_PER_DPU * VALUE_SIZE) = 1; // mark response as valid
@@ -296,6 +299,10 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "key_entry_array",0, sizeof(key_entry_array), DPU_XFER_DEFAULT));
 			// assert(memcmp(key_entry_array[i].value, &i, sizeof(i)) == 0 && "Value mismatch.");
 			DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+			// DPU_FOREACH(set, dpu) {
+			// 	DPU_ASSERT(dpu_log_read(dpu, stdout));
+			// }
+			// getchar();
 			t[2] = get_tscp();
 			DPU_FOREACH(set, dpu, each_dpu){
 				DPU_ASSERT(dpu_prepare_xfer(dpu,resp));
@@ -305,11 +312,12 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 			//* write value to client
 			//std::cout << "Sending response for key: " << i << std::endl;
 			//std::cout << "Value: " << *(uint64_t*)resp->value << std::endl;
-			
+			uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
+			*resp_valid = 2*i+2;
 			// assert(memcmp(resp->value, &i, sizeof(i)) == 0 && "Value mismatch.");
 			post_send(*handler,(char*)resp-(char*)buf, REQUEST_PER_DPU * VALUE_SIZE + sizeof(uint64_t));
 			while(!poll_send_cq(*handler, wc_send));
-			uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
+			// uint64_t* resp_valid = (uint64_t*)((char*)resp + VALUE_SIZE * REQUEST_PER_DPU);
 			// std::cout << "Response valid: " << *resp_valid << std::endl;
 			// std::cout << "Sent response for key: " << *(uint64_t*)(resp) << " at offset: "<< (char*)resp-(char*)buf<< std::endl;
 			request_offset += (REQUEST_PER_DPU * KEY_SIZE + sizeof(uint64_t));
