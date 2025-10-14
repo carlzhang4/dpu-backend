@@ -132,7 +132,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	
 
 	std::cout << "Server thread started." << std::endl;
-	for(int i=0;i<100000;i++){
+	for(int i=0;i<10000;i++){
 		std::cout << "Receiving and updating KVStore, iteration " << i << std::endl;
 		if(store.receive_and_update(net_param.sockfd[1]) == -1) {
 			std::cerr << "Failed to receive and update KVStore" << std::endl;
@@ -200,6 +200,10 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
         std::vector<uint8_t> value_bytes;
         pack_kvpairs(values, value_bytes);
         const uint64_t value_size = static_cast<uint64_t>(value_bytes.size());
+		std::ofstream dump_file;
+		dump_file.open("kvstore_ycsb_dump_4.txt", std::ios::app);
+		dump_file << value_size << std::endl;
+		dump_file.close();
 
         // 在本端缓冲区准备 response
         const size_t resp_offset = offset + align64(req_size);

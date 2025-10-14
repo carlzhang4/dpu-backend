@@ -161,7 +161,7 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	uint64_t request_offset = 0, response_offset = 0;
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
-	int warm_up = 1;
+	int warm_up = 3;
 	for (uint64_t i = 0; i < ops; i+= REQUEST_PER_DPU) {
 		t1 = get_tscp();
 		// std::cout << "Sending request for key: " << i << std::endl;
@@ -217,7 +217,7 @@ void thread_KVStore_client(int thread_index, QpHandler *handler, void *buf, size
 	std::cout << "duration 5: " << (double)d5/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
 	std::cout << "total duration: " << (double)(d1+d2+d3+d4)/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << "us" << std::endl;
 	std::ofstream latency_file;
-	latency_file.open("kvstore_pim_latency.txt", std::ios::app);
+	latency_file.open("kvstore_pim_latency_varidpu.txt", std::ios::app);
 	latency_file  <<REQUEST_PER_DPU << " " << (double)d1/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d2/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d3/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d4/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)d5/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << " " << (double)(d1+d2+d3+d4)/2.1/1000/(ops/REQUEST_PER_DPU-warm_up) << std::endl;
 	latency_file.close();
 	

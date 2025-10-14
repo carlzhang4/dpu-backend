@@ -54,9 +54,9 @@ extern "C" {
 
 #define MAX_FIELDS   10
 #define FIELD_CAP    28   // 每个 field 的最大字节数
-#define VALUE_CAP    100  // 每个 value 的最大字节数
-#define PER_PAIR_BYTES 128
-#define VALUE_SLOT_SIZE 10*128 // 每个 value slot 的字节数
+#define VALUE_CAP    4   // 每个 value 的最大字节数
+#define PER_PAIR_BYTES (FIELD_CAP + VALUE_CAP)
+#define VALUE_SLOT_SIZE 10*VALUE_CAP // 每个 value slot 的字节数
 
 
 void parse_values_fixed(const std::vector<char>& data, std::vector< CuckooHash::KVPair>& out) {
@@ -171,7 +171,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	
 
 	std::cout << "Server thread started." << std::endl;
-	for(int i=0;i<100000;i++){
+	for(int i=0;i<10000;i++){
 		std::cout << "Receiving and updating KVStore, iteration " << i << std::endl;
 		if(store.receive_and_update(net_param.sockfd[1]) == -1) {
 			std::cerr << "Failed to receive and update KVStore" << std::endl;
@@ -206,7 +206,8 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 	struct ibv_wc *wc_send = NULL;
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	uint64_t magic_number =1;
-	
+	uint64_t d1=0;
+	uint64_t t1,t2;
 	while (true){
 			
 		volatile uint8_t* base = reinterpret_cast<volatile uint8_t*>(buf) + offset;
@@ -271,8 +272,10 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 		// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "request",0, 40 , DPU_XFER_DEFAULT));
 		char dpu_request[16*40];
 		
-		
+		t1 = get_tscp();
 		DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+		t2 = get_tscp();
+		d1+=(t2-t1);
 		// DPU_FOREACH(set, dpu) {
 		// DPU_ASSERT(dpu_log_read(dpu, stdout));
 		// }
@@ -375,7 +378,13 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
         offset = resp_offset + align64(resp_total);
         if (offset >= BUF_SIZE) offset = 0;
 		// std::cout << "Processed request for key: " << key << ", returned " << values.size() << " pairs." << std::endl;
-        magic_number++;
+        
+		if(magic_number == 10000) {
+			std::cout <<"DPU Kernel : "<< (double)(d1)/2.1/1000/10000 << "us" << std::endl;
+		} 
+		
+		magic_number++;
+		
 		}
 		
 	

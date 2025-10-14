@@ -78,11 +78,12 @@ int GID_INDEX;
 int NUMA_NODE;
 int BATCH_SIZE = 1;
 int OUTSTANDING = 64;
-int DPU_NUM = 1;
+int DPU_NUM = 16;
 uint64_t MAX_HASH_ENTRY_NUM = 100000;
 int REQUEST_PER_DPU = 1;
 int KEY_SIZE_PIMNIC;
 int VALUE_SIZE_PIMNIC;
+int FIELD_LENGTH;
 
 double scale_value = 10;
 
@@ -237,6 +238,23 @@ int export_pim(NetParam &net_param, void *buffer, int size, int context_id){
 }
 
 void benchmark_KVStore_client(NetParam &net_param) {
+	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
+	size_t * field_length_array = new size_t[ops/REQUEST_PER_DPU]();
+	string field_length_file_path = "../log/dump_files/kvstore_ycsb_dump_" + std::to_string(FIELD_LENGTH)+ ".txt";
+	std::ifstream field_length_file(field_length_file_path);
+	if (!field_length_file.is_open()) {
+		std::cerr << "Failed to open " << field_length_file_path << std::endl;
+		return;
+	}
+	for (size_t i = 0; i < ops/REQUEST_PER_DPU && field_length_file >> field_length_array[i]; ++i);
+	field_length_file.close();
+
+	for(size_t i = 0; i < ops/REQUEST_PER_DPU; ++i){
+		std::cout << field_length_array[i] << " ";
+	}
+
+
+	
 	size_t BUF_SIZE = 260*1024*1024;
 	std::cout << "BUF_SIZE: " << BUF_SIZE << std::endl;
 	// if(BUF_SIZE <= 4096){
@@ -297,8 +315,8 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	
 
 	uint64_t KEY_OFFSET = get_dpu_addr(0,0,0);
-	uint64_t MAGIC_OFFSET = KEY_SIZE_PIMNIC*REQUEST_PER_DPU/64*64+64;
-	uint64_t VALUE_MAGIC_OFFSET = VALUE_SIZE_PIMNIC*REQUEST_PER_DPU/64*64+64;
+	uint64_t MAGIC_OFFSET = 64;
+	uint64_t VALUE_MAGIC_OFFSET ;//= VALUE_SIZE_PIMNIC*REQUEST_PER_DPU/64*64+64;
 	std::cout << "KEY_OFFSET: " << KEY_OFFSET << std::endl;
 	std::cout << "MAGIC_OFFSET: " << MAGIC_OFFSET << std::endl;
 	//uint64_t TRANSFER_LENGTH = MAGIC_OFFSET*16+64;
@@ -310,7 +328,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 
 
 	//* start kvstore GET benchmark
-	size_t ops = size_t(1) * ITERATIONS * NUM_PACK;
+	
 	uint64_t t1,t2,t3,t4,t5,t6;
 	uint64_t t[4];
 	uint64_t d1=0,d2=0,d3=0,d4=0,d5=0;
@@ -318,9 +336,11 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	
 	uint8_t magic_number = 1;
 	int warm_up =5;
+	KEY_SIZE_PIMNIC =64;
 	for (uint64_t i = 0; i < ops/REQUEST_PER_DPU; i++) {
 		std::cout<<"================== iteration : "<<i<<" =================="<<std::endl;
-        
+        VALUE_MAGIC_OFFSET = field_length_array[i]/64*64+64;
+		VALUE_SIZE_PIMNIC = field_length_array[i];
 		// std::cout <<"start setting address is : "<<std::hex<<(void*)get_dpu_addr(0,0,1000)<<std::dec<<std::endl;
 		for(int j=0;j<total_dpu_num;j++){
 			((char**)bufs)[0][get_dpu_addr(slice_id_array[j],dpu_array[j],MAGIC_OFFSET)] = magic_number;
@@ -495,11 +515,12 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	char end_buf[10];
 	send(net_param.sockfd[0], end_buf, sizeof(end_buf), 0);
 	memset(end_buf, 0, sizeof(end_buf));
+	std::cout <<"FIELD_LENGTH: "<<FIELD_LENGTH<<std::endl;
 	std::cout << "RDMA duration: " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
 	std::cout << "total duration: " << (double)(d1)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
 	std::ofstream latency_file;
-	latency_file.open("kvstore_pimnic_varidpu.txt", std::ios::app);
-	latency_file  <<REQUEST_PER_DPU << " " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << " " << (double)(d1 -d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up)<< std::endl;
+	latency_file.open("kvstore_pimnic_ycsb.txt", std::ios::app);
+	latency_file  <<FIELD_LENGTH << " " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << " " << (double)(d1 -d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up)<< std::endl;
 	latency_file.close();
 	
 	//* End KVStore benchmark
@@ -712,6 +733,7 @@ DEFINE_int32(max_hash_entry_num, 1000, "max_hash_entry_num");
 DEFINE_int32(request_per_dpu,1,"request_per_dpu");
 DEFINE_int32(key_size, 8, "key_size");
 DEFINE_int32(value_size, 8, "value_size");
+DEFINE_int32(field_length, 64, "field_length");
 
 int main(int argc, char *argv[]) {
 	
@@ -725,11 +747,12 @@ int main(int argc, char *argv[]) {
 	DEVICE_NAME = FLAGS_deviceName;
 	GID_INDEX = FLAGS_gidIndex;
 	NUMA_NODE = FLAGS_numaNode;
-	DPU_NUM = FLAGS_dpu_num;
+	// DPU_NUM = FLAGS_dpu_num;
 	MAX_HASH_ENTRY_NUM = FLAGS_max_hash_entry_num;
-	REQUEST_PER_DPU = FLAGS_request_per_dpu;
-	KEY_SIZE_PIMNIC = FLAGS_key_size;
-	VALUE_SIZE_PIMNIC = FLAGS_value_size;
+	// REQUEST_PER_DPU = FLAGS_request_per_dpu;
+	// KEY_SIZE_PIMNIC = FLAGS_key_size;
+	// VALUE_SIZE_PIMNIC = FLAGS_value_size;
+	FIELD_LENGTH = FLAGS_field_length;
 
 	// if(MAX_HASH_ENTRY_NUM < ITERATIONS ){
 	// 	std::cout << "MAX_HASH_ENTRY_NUM should be larger than ITERATIONS" << std::endl;

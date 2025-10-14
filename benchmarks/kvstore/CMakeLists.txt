@@ -175,6 +175,13 @@ target_compile_definitions(kvstore_pimnic_host_varidpu PUBLIC DPU_TOOLS_VERSION=
 set_target_properties(kvstore_pimnic_host_varidpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_pimnic_host_varidpu gen_files)
 
+add_executable(kvstore_pimnic_ycsb  ./kvstore_pimnic_ycsb.cpp ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(kvstore_pimnic_ycsb PUBLIC ${INCLUDE_DIRECTORIES} )     
+target_link_libraries(kvstore_pimnic_ycsb  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_pimnic_ycsb PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_pimnic_ycsb PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_pimnic_ycsb gen_files)
+
 
 add_executable(kvstore_cpu  ./kvstore_cpu.cpp  ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/SipHash.h ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include/xxHash64.h ${ALL_DPU_SOURCES} ${SRCS})  
 target_include_directories(kvstore_cpu PUBLIC ${INCLUDE_DIRECTORIES}  ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/include)     

@@ -13,9 +13,8 @@
 
 #define MAX_FIELDS   10
 #define FIELD_CAP    28   // 每个 field 的最大字节数
-#define VALUE_CAP    100  // 每个 value 的最大字节数
-#define PER_PAIR_BYTES 128
-#define VALUE_SLOT_SIZE 10*128 // 每个 value slot 的字节数
+#define VALUE_CAP    4  // 每个 value 的最大字节数
+#define VALUE_SLOT_SIZE 10*(4 + 28) // 每个 value slot 的字节数
 
 
 
@@ -49,11 +48,11 @@ int main(void) {
     mram_read(request+8,input_key , 32 );
     char* key_ptr =  (char*)input_key; ;
     uint64_t hash_value;
-    printf("DPU %d: key_size = %lu\n", dpu_id, key_size);
-    for(int i=0;i<key_size;i++){
-        printf("%c ", ((char*)(key_ptr+i))[0]);
-    }
-    printf("\n");
+    // printf("DPU %d: key_size = %lu\n", dpu_id, key_size);
+    // for(int i=0;i<key_size;i++){
+    //     printf("%c ", ((char*)(key_ptr+i))[0]);
+    // }
+    // printf("\n");
     switch(dpu_id) {
         case 0:
             hash_value = hash_func1(key_ptr, key_size);
@@ -111,13 +110,13 @@ int main(void) {
     mram_read(&hashtable[hash_value],(void*)&hash_entry , sizeof(struct KVhashtable ) );
     if(hash_entry.valid && (strncmp(hash_entry.key,key_ptr,key_size)==0)){
         uint64_t value_offset = hash_entry.value_offset;
-        printf("DPU %d: key_size = %lu hash_value = %lu\n", dpu_id, key_size, hash_value);
+        //printf("DPU %d: key_size = %lu hash_value = %lu\n", dpu_id, key_size, hash_value);
     
         
         
         memcpy(value, value_storage + value_offset,VALUE_SLOT_SIZE);
     }else{
-        printf("DPU %d: Key not found in hashtable. key_size = %lu hash_value = %lu\n", dpu_id, key_size, hash_value);
+        //printf("DPU %d: Key not found in hashtable. key_size = %lu hash_value = %lu\n", dpu_id, key_size, hash_value);
         memset(value,0,VALUE_SLOT_SIZE);
     }
 

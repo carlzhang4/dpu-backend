@@ -14,7 +14,7 @@ using namespace std;
 // 固定大小布局参数（与构造函数中的分配保持一致）
 static constexpr size_t MAX_FIELDS   = 10;
 static constexpr size_t FIELD_CAP    = 28;   // 每个 field 的最大字节数
-static constexpr size_t VALUE_CAP    = 100;  // 每个 value 的最大字节数
+static constexpr size_t VALUE_CAP    = 4;  // 每个 value 的最大字节数
 static constexpr size_t PER_PAIR_BYTES = FIELD_CAP + VALUE_CAP;
 static constexpr size_t VALUE_SLOT_SIZE = MAX_FIELDS * PER_PAIR_BYTES;
 
