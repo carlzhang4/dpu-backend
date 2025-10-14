@@ -77,6 +77,8 @@ void post_send(QpHandler &qp_handler, size_t offset, int length);
 
 void post_read(QpHandler &qp_handler, size_t offset, int length);
 
+void post_write(QpHandler &qp_handler, size_t offset, int length);
+
 void post_send_batch(QpHandler &qp_handler, int batch_size, OffsetHandler &handler, int length);
 
 void post_recv(QpHandler &qp_handler, size_t offset, int length);
