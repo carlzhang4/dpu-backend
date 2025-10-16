@@ -904,18 +904,7 @@ dpu_push_xfer_symbol(struct dpu_set_t dpu_set,
 #endif
 
 
-typedef struct {
-    uint32_t start_offset;
-    uint32_t target_offset;
-    uint32_t total_data_size;
-    uint32_t num_comm_dpu;
-    uint32_t each_dpu;
-    bool no_rotate;
-    uint32_t num_row;
-    uint32_t comm_type;
-    uint32_t a_length;
-    uint32_t num_comm_rg;
-} dpu_arguments_comm_t;
+// dpu_arguments_comm_t is declared in <pidcomm.h> for host-side visibility.
 
 
 

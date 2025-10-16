@@ -40,6 +40,22 @@ typedef struct {
     uint32_t* axis_len;
 } hypercube_manager;
 
+// Arguments structure used for communication kernels on the DPU side.
+// Exposed here so host applications (e.g., GNN host) can prepare and push
+// input arguments with the correct layout and size.
+typedef struct {
+    uint32_t start_offset;
+    uint32_t target_offset;
+    uint32_t total_data_size;
+    uint32_t num_comm_dpu;
+    uint32_t each_dpu;
+    bool no_rotate;
+    uint32_t num_row;
+    uint32_t comm_type;
+    uint32_t a_length;
+    uint32_t num_comm_rg;
+} dpu_arguments_comm_t;
+
 /**
  * @brief Initialize the hypercube manager
  * @param dpu_set the identifier of the DPU set
