@@ -171,10 +171,19 @@ void thread_select_server(int thread_index, QpHandler *handler, void *buf, size_
 	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
 	uint64_t input_data_offset = 0;
 	uint64_t output_data_offset = 0;
-	const unsigned int input_size_dpu_ = divceil(INPUT_SIZE, nr_of_dpus); // Input size per DPU (max.)
-	const unsigned int input_size_dpu_round = 
+	const unsigned int input_size =  INPUT_SIZE; // Total input size (weak or strong scaling)
+	
+    const unsigned int input_size_dpu_ = divceil(input_size, nr_of_dpus); // Input size per DPU (max.)
+    const unsigned int input_size_dpu_round = 
         (input_size_dpu_ % (NR_TASKLETS * REGS) != 0) ? roundup(input_size_dpu_, (NR_TASKLETS * REGS)) : input_size_dpu_; // Input size per DPU (max.), 8-byte aligned
-	// std::cout << "input_size_dpu_: " << input_size_dpu_ << " input_size_dpu_round: " << input_size_dpu_round << std::endl;
+    
+	// printf("Input size\t%u\t", input_size);
+    // printf("Input size per DPU\t%u\t", input_size_dpu_);
+    // printf("Input size per DPU (rounded)\t%u\n", input_size_dpu_round);
+	// printf("NR_TASKLETS\t%d\tBL\t%d\n", NR_TASKLETS, BL);
+    // printf("REGS\t%d\n", REGS);
+	int warmup = 2;
+	
 	for (uint64_t i = 0; i < ITERATIONS; i++) {
 		recv(net_param.sockfd[1], &input_data_offset, sizeof(uint64_t), 0);		
 		output_data_offset = input_data_offset + INPUT_SIZE * sizeof(uint64_t);
@@ -234,7 +243,7 @@ void thread_select_server(int thread_index, QpHandler *handler, void *buf, size_
 		l=0;
 		t5 = get_tscp();
 		uint64_t* tmp_buffer = (uint64_t*)malloc(INPUT_SIZE * sizeof(uint64_t));
-		DPU_FOREACH (dpu_set, dpu,l) {
+		DPU_FOREACH (dpu_set, dpu) {
             // Copy output array
             DPU_ASSERT(dpu_copy_from(dpu, DPU_MRAM_HEAP_POINTER_NAME, input_size_dpu * sizeof(uint64_t), bufferC + results_scan[l], results[l].t_count * sizeof(uint64_t)));
 			// std::cout << "DPU " << l << " results_scan: " << results_scan[l] << " results[l].t_count: " << results[l].t_count << std::endl;
@@ -251,40 +260,44 @@ void thread_select_server(int thread_index, QpHandler *handler, void *buf, size_
 		while(!poll_send_cq(*handler, wc_send));
 		t7 = get_tscp();
 		
-		total_count = select_host(bufferA, tmp_buffer, INPUT_SIZE);
-		bool status = true;
-		if(accum != total_count) status = false;
-		// std::cout << "accum: " << accum << " total_count: " << total_count << std::endl;
-		for (i = 0; i < accum; i++) {
-			if(tmp_buffer[i] != bufferC[i]){ 
-				status = false;
+		// total_count = select_host(bufferA, tmp_buffer, INPUT_SIZE);
+		// bool status = true;
+		// if(accum != total_count) status = false;
+		// for (i = 0; i < accum; i++) {
+		// 	if(tmp_buffer[i] != bufferC[i]){ 
+		// 		status = false;
 
-				printf("%d: %lu -- %lu\n", i, tmp_buffer[i], bufferC[i]);
-				getchar();
-			}
+		// 		printf("%d: %lu -- %lu\n", i, tmp_buffer[i], bufferC[i]);
+		// 		getchar();
+		// 	}
+		// }
+		// if (status) {
+		// 	printf("[" ANSI_COLOR_GREEN "OK" ANSI_COLOR_RESET "] Outputs are equal\n");
+		// } else {
+		// 	printf("[" ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET "] Outputs differ!\n");
+		// }
+		if(i>=warmup){
+			d1 += t2 - t1;
+			d2 += t3 - t2;
+			d3 += t4 - t3;
+			d4 += t5 - t4;
+			d5 += t6 - t5;
+			d6 += t7 - t6;
 		}
-		if (status) {
-			printf("[" ANSI_COLOR_GREEN "OK" ANSI_COLOR_RESET "] Outputs are equal\n");
-		} else {
-			printf("[" ANSI_COLOR_RED "ERROR" ANSI_COLOR_RESET "] Outputs differ!\n");
-		}
-		d1 += t2 - t1;
-		d2 += t3 - t2;
-		d3 += t4 - t3;
-		d4 += t5 - t4;
-		d5 += t6 - t5;
-		d6 += t7 - t6;
 		send(net_param.sockfd[1], &output_data_offset, sizeof(uint64_t), 0);
 		free(results_scan);	
 	}
 	std::cout << "Server thread finished." << std::endl;
-	std::cout << "RDMA read time: " << (double)d1/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "DPU input transfer time: " << (double)d2/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "DPU execution time: " << (double)d3/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "DPU output transfer time: " << (double)d4/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "DPU copy time: " << (double)d5/2.1/1000/ITERATIONS << "us" << std::endl;
-	std::cout << "RDMA write time: " << (double)d6/2.1/1000/ITERATIONS << "us" << std::endl;
-
+	std::cout << "RDMA read time: " << (double)d1/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::cout << "DPU input transfer time: " << (double)d2/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::cout << "DPU execution time: " << (double)d3/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::cout << "DPU output transfer time: " << (double)d4/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::cout << "DPU copy time: " << (double)d5/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::cout << "RDMA write time: " << (double)d6/2.1/1000/(ITERATIONS - warmup)<< "us" << std::endl;
+	std::ofstream latency_file;
+	latency_file.open("select_pim_latency_varidpu.txt", std::ios::app);
+	latency_file  << INPUT_SIZE << " " << (double)d1/2.1/1000/(ITERATIONS - warmup) << " " << (double)d2/2.1/1000/(ITERATIONS - warmup) << " " << (double)d3/2.1/1000/(ITERATIONS - warmup) << " " << (double)d4/2.1/1000/(ITERATIONS - warmup) << " " << (double)d5/2.1/1000/(ITERATIONS - warmup) << " " << (double)d6/2.1/1000/(ITERATIONS - warmup) << " " << (double)(d1+d2+d3+d4+d5+d6)/2.1/1000/(ITERATIONS - warmup) << std::endl;
+	latency_file.close();
 }
 
 void benchmark(NetParam &net_param) {

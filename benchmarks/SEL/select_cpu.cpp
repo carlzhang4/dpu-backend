@@ -181,7 +181,10 @@ void thread_select_server(int thread_index, QpHandler *handler, void *buf, size_
 	std::cout << "RDMA read time: " << (double)d1/2.1/1000/ITERATIONS << "us" << std::endl;
 	std::cout << "Select time: " << (double)d2/2.1/1000/ITERATIONS << "us" << std::endl;
 	std::cout << "RDMA write time: " << (double)d3/2.1/1000/ITERATIONS << "us" << std::endl;
-	
+	std::ofstream latency_file;
+	latency_file.open("sel_cpu_latency.txt", std::ios::app);
+	latency_file  << INPUT_SIZE << " " << (double)d1/2.1/1000/ITERATIONS << " " << (double)d2/2.1/1000/ITERATIONS << " " << (double)d3/2.1/1000/ITERATIONS << " " << (double)(d1+d2+d3)/2.1/1000/ITERATIONS << std::endl;
+	latency_file.close();
 		
 
 }

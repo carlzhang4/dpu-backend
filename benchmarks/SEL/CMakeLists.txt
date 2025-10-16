@@ -94,11 +94,12 @@ include_directories("${CMAKE_SOURCE_DIR}/pimnic")
 
 set(LIBRARIES ${LIBRARIES} ibverbs pthread numa gflags  mlx5)
 
+set(BL 10 CACHE STRING "Block length for select_pim")
 
 add_executable(select_pim  ./select_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})  
 target_include_directories(select_pim PUBLIC ${INCLUDE_DIRECTORIES} )     
 target_link_libraries(select_pim  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-target_compile_definitions(select_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+target_compile_definitions(select_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION} BL=${BL})
 set_target_properties(select_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(select_pim gen_files)
 
