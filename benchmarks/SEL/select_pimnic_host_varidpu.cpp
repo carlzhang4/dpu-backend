@@ -213,7 +213,7 @@ int export_pim(NetParam &net_param, void *buffer, int size, int context_id){
 }
 
 void benchmark_select_client(NetParam &net_param) {
-	size_t BUF_SIZE = 260*1024*1024;
+	size_t BUF_SIZE = 772*1024*1024;
 
 
 	PingPongInfo *info = new PingPongInfo[4]();
@@ -249,7 +249,7 @@ void benchmark_select_client(NetParam &net_param) {
 	// while(!poll_send_cq(*qp_handlers[0], wc_send));
 	//* establish DMA connection with server BF
 	
-	export_client_memory(net_param, bufs[1], 260*1024*1024,1);
+	export_client_memory(net_param, bufs[1], 772*1024*1024,1);
 	std::cout << "BUF1 Address : "<<bufs[1]<<std::endl;
 
 
@@ -289,7 +289,7 @@ void benchmark_select_client(NetParam &net_param) {
 }
 
 void benchmark_select_server(NetParam &net_param) {
-	size_t BUF_SIZE = 260*1024*1024;
+	size_t BUF_SIZE = 772*1024*1024;
 	if(BUF_SIZE <= 4096){
 		BUF_SIZE = 4096*2;
 	}
@@ -378,7 +378,7 @@ void benchmark_select_server(NetParam &net_param) {
 		auto& rank = it->second;
 		rank.open_access();
 		auto addr = rank.base_region_addr;
-		export_pim(net_param, (void*)addr, 260*1024*1024,1);
+		export_pim(net_param, (void*)addr, 772*1024*1024,1);
 	}
 	vhca_resource* client_resource = new vhca_resource[1];
 
@@ -397,7 +397,7 @@ void benchmark_select_server(NetParam &net_param) {
 		rank.open_access();
 
 		auto addr = rank.base_region_addr;
-		export_pim(net_param, (void*)addr, 260*1024*1024,2);
+		export_pim(net_param, (void*)addr, 772*1024*1024,2);
 		std::cout << "PIM Address : "<<addr<<std::endl;
 	}
 
