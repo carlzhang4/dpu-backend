@@ -480,6 +480,9 @@ void reconstruct_COO_matrix_dist(struct COOMatrix *mat, struct dpu_info_t *dpu_i
     uint32_t ncols = mat->ncols;
     int index, dpu_index, nnz_index;
     int i, j, rowind, colind;
+
+    printf("Reconstructing COO matrix for distributed DPU setup (machine ID %u)...\n", machine_id);
+    printf("max_rows_per_dpu=%u, max_cols_per_dpu=%u, max_nnz_per_dpu=%u, nr_of_partitions=%u, nr_of_dpus=%u\n", max_rows_per_dpu, max_cols_per_dpu, max_nnz_per_dpu, nr_of_partitions, nr_of_dpus);
     
     struct elem_t temp;
 
@@ -569,19 +572,28 @@ void reconstruct_COO_matrix_dist(struct COOMatrix *mat, struct dpu_info_t *dpu_i
     // add zero elements to appropriate places so that each DPU will receive equal number of elements 
     for(dpu_index=0; dpu_index < nr_of_dpus; dpu_index++){
         printf("DPU %d: ", dpu_index);
-        curr_nnz = mat->partitions[dpu_index];
+        // Use global offset since mat->partitions is global-sized
+        curr_nnz = mat->partitions[base_global + dpu_index];
 
-        curr_row = dpu_info[dpu_index].prev_rows_dpu;
+        // Clamp search within this DPU's row band
+        int start_row = dpu_info[dpu_index].prev_rows_dpu;
+        int end_row = dpu_info[dpu_index].prev_rows_dpu + (int)dpu_info[dpu_index].rows_per_dpu - 1;
+
+        curr_row = start_row;
         nnz_sum = mat->rows[dpu_index % nr_of_partitions][curr_row];
 
-        while(nnz_sum < (curr_nnz/2)){
+        while ((nnz_sum < (curr_nnz / 2)) && (curr_row < end_row)) {
             curr_row++;
             nnz_sum += mat->rows[dpu_index % nr_of_partitions][curr_row];
         }
         
-        if(nnz_sum - (curr_nnz/2) > (curr_nnz/2) - (nnz_sum - mat->rows[dpu_index % nr_of_partitions][curr_row])){
-            nnz_sum -= mat->rows[dpu_index % nr_of_partitions][curr_row];
-            curr_row--;
+        if (curr_row > start_row) {
+            int left_gap = nnz_sum - (curr_nnz / 2);
+            int right_gap = (curr_nnz / 2) - (nnz_sum - (int)mat->rows[dpu_index % nr_of_partitions][curr_row]);
+            if (left_gap > right_gap) {
+                nnz_sum -= mat->rows[dpu_index % nr_of_partitions][curr_row];
+                curr_row--;
+            }
         }
         threshold_row[dpu_index] = curr_row;
         if(curr_nnz == max_nnz_per_dpu){
@@ -710,6 +722,7 @@ void reconstruct_COO_matrix_dist(struct COOMatrix *mat, struct dpu_info_t *dpu_i
 
     return;
 }
+
 
 
 // => may have to split the matrix in pieces for later use

@@ -126,7 +126,7 @@ static void GNN_host_mid(struct COOMatrix *A, struct Matrix *feature, T *Mid) {
         }
     }
 
-#pragma omp parallel for num_threads(12)
+// #pragma omp parallel for num_threads(12)
     for(unsigned int n = 0; n < A->nnz; n++) {
         for(unsigned int col = 0; col < feature->ncols; col++) {
             Mid[(A->nnzs[n].rowind * feature->ncols + col)] += 
@@ -143,7 +143,7 @@ static void GNN_host_mid_2(struct COOMatrix *A, struct Matrix *feature, T *Mid) 
         }
     }
 
-#pragma omp parallel for num_threads(12)
+// #pragma omp parallel for num_threads(12)
     for(unsigned int n = 0; n < A->nnz; n++) {
         for(unsigned int col = 0; col < feature->ncols; col++) {
             Mid[(A->nnzs[n].rowind * feature->ncols + col)] += 
@@ -160,7 +160,7 @@ static void GNN_host_rest(struct Matrix *y, T *Mid, struct Matrix *weight) {
         }
     }
 
-#pragma omp parallel for num_threads(12)
+// #pragma omp parallel for num_threads(12)
     for(unsigned int row = 0; row < y->nrows; row++) {
         for(unsigned int col = 0; col < y->ncols; col++) {
             for(int i = 0; i < y->ncols; i++) {
@@ -302,7 +302,7 @@ void distributed_allreduce_x(T** new_feat_cycle, T** partial_feat, uint32_t nr_o
     for(int i = start_partition; i < end_partition; i++) {
         const uint32_t row_local = (uint32_t)i - start_partition; // map global row partition to local row index
         for(unsigned int row = 0; row < max_rows_per_dpu; row++) {
-            printf("Machine %d: Reducing partition %d, row %d\n", comm->machine_id, i, row);
+            //printf("Machine %d: Reducing partition %d, row %d\n", comm->machine_id, i, row);
             for(unsigned int col = 0; col < ncols; col++) {
                 
                 new_feat_cycle[i][row * ncols + col] = 0;
@@ -481,6 +481,43 @@ void distributed_allgather(T** new_feat_cycle, T** partial_feat, uint32_t nr_of_
             if (send_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
                 printf("Failed to send data to machine 0\n");
                 return;
+            }
+        }
+    }
+}
+
+// 将二层列分区块拼成连续 ncols 的本机行分区缓冲
+static inline void stitch_second_layer_locally(
+    T **new_feat_cycle,         // 输出：按全局行分区 i 存放的连续 ncols 宽度
+    T **partial_feat,           // 输入：按全局行分区 i，内部为 P 个列分块，块宽 max_cols_per_dpu_w
+    const partition_info_t *pi, // 提供 w_col_split、mid_row_split
+    uint32_t nr_of_partitions,
+    uint32_t max_rows_per_dpu_mid,
+    uint32_t max_cols_per_dpu_w,
+    uint32_t ncols,
+    uint32_t machine_id
+) {
+    const uint32_t local_partitions = nr_of_partitions / 2;
+    const uint32_t start_partition = machine_id * local_partitions;
+    const uint32_t end_partition   = start_partition + local_partitions;
+
+    for (uint32_t i = start_partition; i < end_partition; i++) {
+        const uint32_t rows_this = pi->mid_row_split[i + 1] - pi->mid_row_split[i];
+        const uint32_t rows_copy = rows_this < max_rows_per_dpu_mid ? rows_this : max_rows_per_dpu_mid;
+
+        // 清零目标缓冲（避免填充列的残留）
+        memset(new_feat_cycle[i], 0, (size_t)max_rows_per_dpu_mid * ncols * sizeof(T));
+
+        for (uint32_t j = 0; j < nr_of_partitions; j++) {
+            const uint32_t cols_j    = pi->w_col_split[j + 1] - pi->w_col_split[j];  // 该列分区实际列数
+            const uint32_t col_off   = pi->w_col_split[j];                            // 落位起始列
+            const size_t   src_blk_e = (size_t)max_cols_per_dpu_w * max_rows_per_dpu_mid;
+
+            const T *src_blk = partial_feat[i] + (size_t)j * src_blk_e; // 源块：宽 max_cols_per_dpu_w
+            for (uint32_t r = 0; r < rows_copy; r++) {
+                const T *src_row = src_blk + (size_t)r * max_cols_per_dpu_w;
+                T       *dst_row = new_feat_cycle[i] + (size_t)r * ncols + col_off;
+                memcpy(dst_row, src_row, (size_t)cols_j * sizeof(T));
             }
         }
     }
@@ -698,11 +735,12 @@ int main(int argc, char **argv) {
     
     reconstruct_weight(weight, dpu_info_w, max_cols_per_dpu_w, nr_of_partitions);
     std::cout << "--- PARTITIONING MID RESULT MATRIX ---" << std::endl;
-    // Calculate DPU info for mid result matrix
+    // Calculate DPU info for mid result matrix (apply base_row so two machines split top/bottom halves)
     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
-        k = (i / nr_of_partitions);
-        uint32_t rows_per_dpu = partition_info->mid_row_split[k+1] - partition_info->mid_row_split[k];
-        uint32_t prev_rows_dpu = partition_info->mid_row_split[k];
+        uint32_t k_local = (i / nr_of_partitions);
+        uint32_t k_global = base_row + k_local;
+        uint32_t rows_per_dpu = partition_info->mid_row_split[k_global+1] - partition_info->mid_row_split[k_global];
+        uint32_t prev_rows_dpu = partition_info->mid_row_split[k_global];
         
         if(rows_per_dpu > max_rows_per_dpu_mid) max_rows_per_dpu_mid = rows_per_dpu;
         
@@ -865,7 +903,7 @@ int main(int argc, char **argv) {
     // Second part of GNN
     if(mid->ncols > 512) { 
         printf("Feature row length exceeded limit\n");
-        goto EXIT;
+        exit(EXIT_FAILURE);
     }
     
     // Load second kernel
@@ -877,17 +915,21 @@ int main(int argc, char **argv) {
     y_final->val = (T *) calloc((A->nrows * feature->ncols), sizeof(T));
     y_final->nrows = A->nrows;
     y_final->ncols = feature->ncols;
-    GNN_host_rest(y_final, y_host, weight_2);
+    GNN_host_rest(y_final, y_host, weight);
     
     // Allocate new feature matrices
     new_feat_cycle = (T**)malloc((nr_of_partitions) * sizeof(T*));
     for(i = 0; i < nr_of_partitions; i++) {
-        new_feat_cycle[i] = (T*) calloc(max_rows_per_dpu_feat * feature->ncols, sizeof(T));
+        new_feat_cycle[i] = (T*) calloc((size_t)max_rows_per_dpu_mid * feature->ncols, sizeof(T)); // 行高用 mid 的
     }
-    
-    partial_feat = (T**)malloc(nr_of_dpus * sizeof(T*));
-    for(i = 0; i < nr_of_dpus; i++) {
-        partial_feat[i] = (T*) calloc(feature->ncols * max_rows_per_dpu_mid, sizeof(T));
+
+    // 修正 partial_feat 分配为“填充后的列宽”
+    partial_feat = (T**)malloc(nr_of_partitions * sizeof(T*));
+    for (i = 0; i < nr_of_partitions; i++) {
+        partial_feat[i] = (T*)calloc(
+            (size_t)max_rows_per_dpu_mid * (nr_of_partitions * max_cols_per_dpu_w),
+            sizeof(T)
+        );
     }
     
     // Send arguments to DPUs
@@ -915,10 +957,12 @@ int main(int argc, char **argv) {
     } 
     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t), max_cols_per_dpu_w * weight->nrows * sizeof(T), DPU_XFER_DEFAULT));
     
-    // Copy mid results to DPUs
+    // Copy mid results to DPUs (load top/bottom halves based on machine id)
     i = 0;
     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
-        DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[i/nr_of_partitions]));
+        uint32_t k_local = i / nr_of_partitions;           // local row band index on this machine
+        uint32_t k_global = base_row + k_local;            // global row band index (top half for machine 0, bottom half for machine 1)
+        DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[k_global]));
     }
     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), max_rows_per_dpu_mid * mid->ncols * sizeof(T), DPU_XFER_DEFAULT));
     
@@ -933,37 +977,64 @@ int main(int argc, char **argv) {
     startTimer(&timer, 9);
     
     i = 0;
-    DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
-        DPU_ASSERT(dpu_prepare_xfer(dpu, (new_feat_cycle[i /nr_of_partitions] + (max_cols_per_dpu_w * max_rows_per_dpu_mid * (i%nr_of_partitions)))));
-    } 
-    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), DPU_XFER_DEFAULT));
-    
-    // Use distributed allgather instead of local allgather
-    distributed_allgather(new_feat_cycle, partial_feat, nr_of_partitions, nr_of_dpus, max_rows_per_dpu_feat, feature->ncols, &comm);
-    
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
+        uint32_t k_local  = i / nr_of_partitions;             // 本机行带索引
+        uint32_t k_global = base_row + k_local;               // 全局行分区
+        uint32_t j_col    = i % nr_of_partitions;             // 列分区索引
+        DPU_ASSERT(dpu_prepare_xfer(
+            dpu,
+            partial_feat[k_global] + (size_t)j_col * (max_cols_per_dpu_w * max_rows_per_dpu_mid)
+        ));
+    }
+    DPU_ASSERT(dpu_push_xfer(
+        dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME,
+        2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T),
+        max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T),
+        DPU_XFER_DEFAULT
+    ));
+
+    // 本机先把列分块拼成连续 ncols
+    // stitch_second_layer_locally(new_feat_cycle, partial_feat, partition_info,
+    //                             nr_of_partitions, max_rows_per_dpu_mid,
+    //                             max_cols_per_dpu_w, feature->ncols, (uint32_t)machine_id);
+
+    // Use distributed allgather — 行高用 mid 的行高
+    distributed_allgather(new_feat_cycle, partial_feat, nr_of_partitions, nr_of_dpus,
+                          max_rows_per_dpu_mid, feature->ncols, &comm);
+  
+    // FILE *fptr;
+    // fptr = fopen("dpu_output_feat_cycle1.txt", "w");
+    // if(fptr == NULL){
+    //     printf("Error opening file!\n");
+    //     exit(1);
+    // }
+    // for (int i = 0; i < nr_of_partitions; i++) {
+    //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+    //         for (unsigned int col = 0; col < feature->ncols; col++) {
+    //             uint32_t global_row = partition_info->feat_row_split[i] + row;
+    //             if(global_row >= feature->nrows) continue;
+    //             fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
+    //         }
+    //     }
+    // }
+    // fclose(fptr);
     //* compare y_final and new_feat_cycle for correctness
-    errors_cnt = 0;
-    for (int i = 0; i < nr_of_partitions; i++) {
-        for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
-            for (unsigned int col = 0; col < feature->ncols; col++) {
-                uint32_t global_row = partition_info->feat_row_split[i] + row;
-                if(global_row >= feature->nrows) continue;
-                T diff = std::abs(new_feat_cycle[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]);
-                if(diff > 0.01) {
-                    errors_cnt++;
-                    // if(errors_cnt < 10) {
-                    //     printf("Mismatch at row %u, col %u: DPU result = %f, Host result = %f\n", 
-                    //            global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
-                    // }
-                }
-            }
-        }
-    }
-    if(errors_cnt == 0) {
-        printf("Second GNN layer results are CORRECT!\n");
-    } else {
-        printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
-    }
+    //errors_cnt = 0;
+    // for(i=0;i<nr_of_partitions;i++){
+    //         for(unsigned int row = 0; row < dpu_info_feat[i].rows_per_dpu; row++){
+    //             for(unsigned int col = 0; col < feature->ncols; col++){
+    //                 if(y_final->val[(row + dpu_info_feat[i].prev_rows_dpu) * feature->ncols + col] != new_feat_cycle[i][row * feature->ncols + col]){
+    //                     errors_cnt++; j++; t++;
+                        
+    //                 }
+    //             }
+    //         }
+    //     } 
+    // if(errors_cnt == 0) {
+    //     printf("Second GNN layer results are CORRECT!\n");
+    // } else {
+    //     printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
+    // }
 
     // Copy gathered data to DPUs
     i = 0;

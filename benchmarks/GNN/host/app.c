@@ -741,11 +741,53 @@ int main(int argc, char **argv) {
         // Copy mid result from DPUs
         startTimer(&timer, 9);
         i = 0;
+        printf("max_cols_per_dpu_w: %lu\n", max_cols_per_dpu_w);
+        printf("max_rows_per_dpu_mid: %lu\n", max_rows_per_dpu_mid);
         DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
             DPU_ASSERT(dpu_prepare_xfer(dpu, (new_feat_cycle[i /nr_of_partitions] + (max_cols_per_dpu_w * max_rows_per_dpu_mid * (i%nr_of_partitions)))));
         } 
         DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), DPU_XFER_DEFAULT));
         
+        //* dump the new_feat_cycle to file for checking correctness *
+        // FILE *fptr;
+        // fptr = fopen("dpu_output_feat_cycle2.txt", "w");
+        // if(fptr == NULL){
+        //     printf("Error opening file!\n");
+        //     exit(1);
+        // }
+        // for (int i = 0; i < nr_of_partitions; i++) {
+        //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+        //         for (unsigned int col = 0; col < feature->ncols; col++) {
+        //             uint32_t global_row = partition_info->feat_row_split[i] + row;
+        //             if(global_row >= feature->nrows) continue;
+        //             fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
+        //         }
+        //     }
+        // }
+        // fclose(fptr);
+
+
+    //     int   errors_cnt = 0;
+    // for (int i = 0; i < nr_of_partitions; i++) {
+    //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+    //         for (unsigned int col = 0; col < feature->ncols; col++) {
+    //             uint32_t global_row = partition_info->feat_row_split[i] + row;
+    //             if(global_row >= feature->nrows) continue;
+    //             if(fabs(new_feat_cycle[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]) > 0.01) {
+    //                 errors_cnt++;
+    //                 if(errors_cnt < 10) {
+    //                     printf("Error at partition %d, row %u, col %u: DPU result = %f, Host result = %f\n", i, global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // if(errors_cnt == 0) {
+    //     printf("Second GNN layer results are CORRECT!\n");
+    // } else {
+    //     printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
+    // }
+
         // Copy gathered data to DPUs
         i = 0;
         DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
