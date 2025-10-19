@@ -23,6 +23,7 @@ void COO_partition(struct COOMatrix *COOMtx, struct partition_info_t *partition_
     // Compute the matrix splits.
     uint32_t chunks_col = COOMtx->ncols / nr_of_partitions;
     uint32_t rest_cols = COOMtx->ncols % nr_of_partitions;
+    //printf("chunks_col=%u, rest_cols=%u\n", chunks_col, rest_cols);
     uint32_t cols_per_dpu;
     uint32_t curr_col = 0;
     uint32_t i;

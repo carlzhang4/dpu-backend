@@ -72,7 +72,7 @@ int test(uint32_t nr_dpus,uint32_t test_size){
     uint64_t t1,t2,t3,t4;
     
 
-    uint32_t interval = 20;
+    uint32_t interval = 100000;
 
     //t1 = clock();
     for(uint32_t i=0;i<interval;i++)
@@ -87,9 +87,10 @@ int test(uint32_t nr_dpus,uint32_t test_size){
  
         
 
-        d1 = 1.0*(t2-t1)/ 2.1;
-        printf("%lf\n",d1);
+        d1 += 1.0*(t2-t1)/ 2.1;
+        
     }
+    printf("%lf us\n",d1/interval/1000);
     // printf("*********************************************\n");
     // printf("total dpu number : %d\n",nr_dpus);
     // printf("total data size : %d MB\n",test_size/1024/1024);
@@ -109,7 +110,7 @@ int main()
 {
     // for(uint32_t i=1;i<=1024;i*=2){
         for(uint32_t j=8;j<=4*1024*1024;j*=2){
-            test(1,j);
+            test(2,j);
         }
     // }
     // test(8,4194304);

@@ -2,20 +2,25 @@
 #define _MATRIX_H_
 
 #include <stdio.h>
+#include <stdlib.h>
+
 
 #include "common.h"
 #include "partition.h"
 
 /** 
  * brief Comparator for Quicksort
+ * Note: Use const-correct signature to match qsort in C/C++ and mark static to avoid multiple definitions from header inclusion.
  */
-int comparator(void *a, void *b) {
-    if (((struct elem_t *)a)->rowind < ((struct elem_t *)b)->rowind) {
+static inline int comparator(const void *a, const void *b) {
+    const struct elem_t *ea = (const struct elem_t *)a;
+    const struct elem_t *eb = (const struct elem_t *)b;
+    if (ea->rowind < eb->rowind) {
         return -1;
-    } else if (((struct elem_t *)a)->rowind > ((struct elem_t *)b)->rowind) {
+    } else if (ea->rowind > eb->rowind) {
         return 1;
     } else {
-        return (((struct elem_t *)a)->colind - ((struct elem_t *)b)->colind);
+        return (int)(ea->colind - eb->colind);
     }
 }
 
@@ -25,6 +30,7 @@ int comparator(void *a, void *b) {
  */
 static void sortCOOMatrix(struct COOMatrix *cooMtx) {
 
+    
     qsort(cooMtx->nnzs, cooMtx->nnz, sizeof(struct elem_t), comparator);
 
 }
@@ -40,7 +46,7 @@ uint32_t dpu_num_for_element(struct partition_info_t *partition_info, uint32_t r
     for(rowind_dpu = 0; rowind_dpu < nr_of_partitions; rowind_dpu++){
         if(partition_info->COO_row_split[rowind_dpu+1] > rowind) break;
     }
-
+    // printf("rowind=%u, colind=%u goes to DPU (%u, %u) return value: %u\n", rowind, colind, rowind_dpu, colind_dpu, (rowind_dpu * nr_of_partitions + colind_dpu));
     return (rowind_dpu * nr_of_partitions + colind_dpu);
 }
 
@@ -69,8 +75,8 @@ struct COOMatrix *copy_COOMatrix(struct COOMatrix *mat, uint32_t nr_of_dpus){
 
 //make random Matrix of given size
 struct Matrix *create_matrix(uint32_t nrows, uint32_t ncols, bool row_major){
-    struct Matrix *mat = malloc(2 * sizeof(uint32_t) + sizeof(T*));
-    mat->val = malloc(nrows * ncols * sizeof(T));
+    struct Matrix *mat = (struct Matrix *)malloc(sizeof(struct Matrix));
+    mat->val = (T *)malloc(nrows * ncols * sizeof(T));
     mat->nrows = nrows;
     mat->ncols = ncols;
     if(row_major){
@@ -186,7 +192,7 @@ void reconstruct_matrix(struct Matrix *mat, struct dpu_info_t *dpu_info, uint32_
     uint32_t rows_per_dpu, prev_rows_dpu;
     int index;
 
-    T* temp = malloc(ncols * max_rows_per_dpu * nr_of_partitions * sizeof(T));
+    T* temp = (T*)malloc(ncols * max_rows_per_dpu * nr_of_partitions * sizeof(T));
     for(int i=0;i<nr_of_partitions; i++){
         rows_per_dpu = dpu_info[i].rows_per_dpu;
         prev_rows_dpu = dpu_info[i].prev_rows_dpu;
@@ -249,7 +255,7 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
 
 
     for(i=0;i<nr_of_dpus;i++){
-        new_nnz[i] = malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+        new_nnz[i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
     }
 
     //realloc mat->nnzs to fit into the new COO matrix
@@ -292,6 +298,7 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
         free(new_nnz[i]);
     }
 
+    printf("Adding zero-padding to COO matrix for load balancing...\n");
 
     int curr_nnz;//
     int curr_row, nnz_sum;//
@@ -299,8 +306,8 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
     uint32_t start_col_partition[num_of_partitions+1];//
     struct elem_t* new_nnz_2[2][num_of_partitions];
     for(i=0;i<num_of_partitions;i++){
-        new_nnz_2[0][i] = malloc(max_nnz_per_dpu * sizeof(struct elem_t));
-        new_nnz_2[1][i] = malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+        new_nnz_2[0][i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+        new_nnz_2[1][i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
     }
     int new_nnz_index_2[2][num_of_partitions];
 
@@ -312,21 +319,32 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
         dummy_nnz_num_2[i]=0;
     }
     
+    printf("Calculating threshold rows for each DPU...\n");
     // add zero elements to appropriate places so that each DPU will receive equal number of elements 
     for(dpu_index=0; dpu_index < nr_of_dpus; dpu_index++){
+        printf("DPU %d: ", dpu_index);
+        // Non-distributed path: use local partition index directly
         curr_nnz = mat->partitions[dpu_index];
 
-        curr_row = dpu_info[dpu_index].prev_rows_dpu;
+        // Clamp search within this DPU's row band
+        int start_row = dpu_info[dpu_index].prev_rows_dpu;
+        int end_row = dpu_info[dpu_index].prev_rows_dpu + (int)dpu_info[dpu_index].rows_per_dpu - 1;
+
+        curr_row = start_row;
         nnz_sum = mat->rows[dpu_index % nr_of_partitions][curr_row];
 
-        while(nnz_sum < (curr_nnz/2)){
+        while ((nnz_sum < (curr_nnz / 2)) && (curr_row < end_row)) {
             curr_row++;
             nnz_sum += mat->rows[dpu_index % nr_of_partitions][curr_row];
         }
         
-        if(nnz_sum - (curr_nnz/2) > (curr_nnz/2) - (nnz_sum - mat->rows[dpu_index % nr_of_partitions][curr_row])){
-            nnz_sum -= mat->rows[dpu_index % nr_of_partitions][curr_row];
-            curr_row--;
+        if (curr_row > start_row) {
+            int left_gap = nnz_sum - (curr_nnz / 2);
+            int right_gap = (curr_nnz / 2) - (nnz_sum - (int)mat->rows[dpu_index % nr_of_partitions][curr_row]);
+            if (left_gap > right_gap) {
+                nnz_sum -= mat->rows[dpu_index % nr_of_partitions][curr_row];
+                curr_row--;
+            }
         }
         threshold_row[dpu_index] = curr_row;
         if(curr_nnz == max_nnz_per_dpu){
@@ -349,6 +367,8 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
         //save needed data in dpu_info
         input_args[dpu_index].tasklet_group_nnz_offset = nnz_sum + dummy_nnz_num_1[dpu_index];
     }
+
+    printf("Threshold rows for each DPU:\n");
 
     struct elem_t* new_nnzs_2 = (struct elem_t*) malloc((max_nnz_per_dpu * nr_of_dpus) * sizeof(struct elem_t));
 
@@ -400,6 +420,7 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
         //write back data in new order
         nnz_index = dpu_index * max_nnz_per_dpu;
        
+        printf("DPU %d: threshold row = %u, dummy_nnz_1 = %u, dummy_nnz_2 = %u\n", dpu_index, threshold_row[dpu_index], dummy_nnz_num_1[dpu_index], dummy_nnz_num_2[dpu_index]);
         for(i=0; i < num_of_partitions; i++){
             for(j=0;j<new_nnz_index_2[0][i];j++){
                 new_nnzs_2[nnz_index].rowind = new_nnz_2[0][i][j].rowind;
@@ -452,6 +473,245 @@ void reconstruct_COO_matrix(struct COOMatrix *mat, struct dpu_info_t *dpu_info, 
     return;
 }
 
+
+void reconstruct_COO_matrix_dist(struct COOMatrix *mat, struct dpu_info_t *dpu_info, struct partition_info_t *partition_info, dpu_arguments_t *input_args, uint32_t max_rows_per_dpu,
+                                                            uint32_t num_of_partitions, uint32_t max_cols_per_dpu, uint32_t nr_of_partitions, uint32_t nr_of_dpus, uint32_t max_nnz_per_dpu, uint32_t machine_id){
+    uint32_t nrows = mat->nrows;
+    uint32_t ncols = mat->ncols;
+    int index, dpu_index, nnz_index;
+    int i, j, rowind, colind;
+    
+    struct elem_t temp;
+
+    struct elem_t* new_nnz[nr_of_dpus];
+    int new_nnz_index[nr_of_dpus];
+
+
+    for(i=0;i<nr_of_dpus;i++){
+        new_nnz[i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+    }
+
+    //realloc mat->nnzs to fit into the new COO matrix
+    struct elem_t* new_nnzs = (struct elem_t*) malloc((max_nnz_per_dpu * nr_of_dpus) * sizeof(struct elem_t));
+
+    //initialize new_nnz_index
+    for(i=0;i<nr_of_dpus;i++){
+        new_nnz_index[i] = 0;
+    }
+
+    // derive machine-local mapping
+    const uint32_t rows_per_machine = nr_of_partitions / 2; // split along row dimension into two machines
+    const uint32_t base_row = machine_id * rows_per_machine;
+    const uint32_t base_global = base_row * nr_of_partitions;
+
+    //traverse through the nnzs and find the appropriate place for each of them (map global -> local subset)
+    for(nnz_index = 0; nnz_index < mat->nnz; nnz_index++){
+
+        rowind = mat->nnzs[nnz_index].rowind;
+        colind = mat->nnzs[nnz_index].colind;
+
+        int dpu_index_global = dpu_num_for_element(partition_info, rowind, colind, nr_of_partitions);
+        int dpu_row_global = dpu_index_global / (int)nr_of_partitions;
+        int dpu_col_global = dpu_index_global % (int)nr_of_partitions;
+        // keep only the rows belonging to this machine
+        if (dpu_row_global < (int)base_row || dpu_row_global >= (int)(base_row + rows_per_machine)) {
+            continue;
+        }
+        int local_row = dpu_row_global - (int)base_row;
+        int dpu_index_local = local_row * (int)nr_of_partitions + dpu_col_global; // 0..nr_of_dpus-1
+
+        new_nnz[dpu_index_local][new_nnz_index[dpu_index_local]] = mat->nnzs[nnz_index];
+        new_nnz_index[dpu_index_local]++;
+        
+    }
+
+    nnz_index = 0;
+    for(i=0; i < nr_of_dpus; i++){
+        for(j=0; j<new_nnz_index[i]; j++){
+            new_nnzs[nnz_index].rowind = new_nnz[i][j].rowind;
+            new_nnzs[nnz_index].colind = new_nnz[i][j].colind;
+            new_nnzs[nnz_index].val = new_nnz[i][j].val;
+            nnz_index++;
+        }
+    }
+
+
+    free(mat->nnzs);
+    mat->nnzs = new_nnzs;
+
+    //free used resources
+    for(i=0;i<nr_of_dpus;i++){
+        free(new_nnz[i]);
+    }
+
+    printf("Adding zero-padding to COO matrix for load balancing...\n");
+
+    int curr_nnz;//
+    int curr_row, nnz_sum;//
+
+    uint32_t start_col_partition[num_of_partitions+1];//
+    struct elem_t* new_nnz_2[2][num_of_partitions];
+    for(i=0;i<num_of_partitions;i++){
+        new_nnz_2[0][i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+        new_nnz_2[1][i] = (struct elem_t*)malloc(max_nnz_per_dpu * sizeof(struct elem_t));
+    }
+    int new_nnz_index_2[2][num_of_partitions];
+
+    uint32_t threshold_row[nr_of_dpus];//
+    uint32_t dummy_nnz_num_1[nr_of_dpus], dummy_nnz_num_2[nr_of_dpus];//
+
+    for(i=0; i<nr_of_dpus; i++){
+        dummy_nnz_num_1[i]=0;
+        dummy_nnz_num_2[i]=0;
+    }
+    
+    printf("Calculating threshold rows for each DPU...\n");
+    // add zero elements to appropriate places so that each DPU will receive equal number of elements 
+    for(dpu_index=0; dpu_index < nr_of_dpus; dpu_index++){
+        printf("DPU %d: ", dpu_index);
+        curr_nnz = mat->partitions[dpu_index];
+
+        curr_row = dpu_info[dpu_index].prev_rows_dpu;
+        nnz_sum = mat->rows[dpu_index % nr_of_partitions][curr_row];
+
+        while(nnz_sum < (curr_nnz/2)){
+            curr_row++;
+            nnz_sum += mat->rows[dpu_index % nr_of_partitions][curr_row];
+        }
+        
+        if(nnz_sum - (curr_nnz/2) > (curr_nnz/2) - (nnz_sum - mat->rows[dpu_index % nr_of_partitions][curr_row])){
+            nnz_sum -= mat->rows[dpu_index % nr_of_partitions][curr_row];
+            curr_row--;
+        }
+        threshold_row[dpu_index] = curr_row;
+        if(curr_nnz == max_nnz_per_dpu){
+            dummy_nnz_num_1[dpu_index] = 0;
+            dummy_nnz_num_2[dpu_index] = 0;
+        }
+        else if(curr_nnz - nnz_sum > max_nnz_per_dpu/2 ){
+            dummy_nnz_num_1[dpu_index] = max_nnz_per_dpu - curr_nnz;
+            dummy_nnz_num_2[dpu_index] = 0;
+        }
+        else if(nnz_sum > max_nnz_per_dpu/2 ){
+            dummy_nnz_num_1[dpu_index] = 0;
+            dummy_nnz_num_2[dpu_index] = max_nnz_per_dpu - curr_nnz;
+        }
+        else{
+            dummy_nnz_num_1[dpu_index] = max_nnz_per_dpu/2 - nnz_sum;
+            dummy_nnz_num_2[dpu_index] = max_nnz_per_dpu/2 - (curr_nnz - nnz_sum);
+        }
+
+        //save needed data in dpu_info
+        input_args[dpu_index].tasklet_group_nnz_offset = nnz_sum + dummy_nnz_num_1[dpu_index];
+    }
+
+    printf("Threshold rows for each DPU:\n");
+
+    struct elem_t* new_nnzs_2 = (struct elem_t*) malloc((max_nnz_per_dpu * nr_of_dpus) * sizeof(struct elem_t));
+
+
+
+    uint32_t prev_nnz_curr=0;
+    uint32_t cols_per_dpu;
+    uint32_t prev_cols_dpu;
+
+    for(dpu_index=0; dpu_index < nr_of_dpus; dpu_index++){
+        cols_per_dpu = dpu_info[dpu_index].cols_per_dpu;
+        prev_cols_dpu = dpu_info[dpu_index].prev_cols_dpu;
+        if(dpu_index>=1) prev_nnz_curr += mat->partitions[base_global + (dpu_index-1)];
+
+        
+        i=prev_cols_dpu;
+        start_col_partition[0] = i;
+        
+        for(index = 0; index < num_of_partitions; index++){
+            i += cols_per_dpu/num_of_partitions;
+            if(index < (cols_per_dpu % num_of_partitions)) i++;
+            start_col_partition[index+1] = i;
+        }
+        
+        //initialize new_nnz_index
+        for(i=0;i<num_of_partitions;i++){
+            new_nnz_index_2[0][i] = 0;
+            new_nnz_index_2[1][i] = 0;
+        }
+
+        for(nnz_index = prev_nnz_curr; nnz_index < prev_nnz_curr + (int)mat->partitions[base_global + dpu_index]; nnz_index++){
+            //check which partition the nnz belongs to and put element in the appropriate partition
+            for(i=0; i<num_of_partitions; i++){
+                if(new_nnzs[nnz_index].colind < start_col_partition[i+1] && new_nnzs[nnz_index].colind >= start_col_partition[i]) {
+                    if(new_nnzs[nnz_index].rowind <= threshold_row[dpu_index]){
+                        new_nnz_2[0][i][new_nnz_index_2[0][i]] = new_nnzs[nnz_index];
+                        new_nnz_index_2[0][i]++;
+                        break;
+                    }
+                    else{
+                        new_nnz_2[1][i][new_nnz_index_2[1][i]] = new_nnzs[nnz_index];
+                        new_nnz_index_2[1][i]++;
+                        break;
+                    }
+                }
+            }
+        }
+
+        //write back data in new order
+        nnz_index = dpu_index * max_nnz_per_dpu;
+        printf("DPU %d: threshold row = %u, dummy_nnz_1 = %u, dummy_nnz_2 = %u\n", dpu_index, threshold_row[dpu_index], dummy_nnz_num_1[dpu_index], dummy_nnz_num_2[dpu_index]);
+        for(i=0; i < num_of_partitions; i++){
+            for(j=0;j<new_nnz_index_2[0][i];j++){
+                new_nnzs_2[nnz_index].rowind = new_nnz_2[0][i][j].rowind;
+                new_nnzs_2[nnz_index].colind = new_nnz_2[0][i][j].colind;
+                new_nnzs_2[nnz_index].val = new_nnz_2[0][i][j].val;
+                nnz_index++;
+            }
+        }
+        temp.rowind = threshold_row[dpu_index];
+        temp.colind = temp.colind = dpu_info[(dpu_index)].prev_cols_dpu + dpu_info[(dpu_index)].cols_per_dpu-1;
+        temp.val = 0;
+        for(i=0; i<dummy_nnz_num_1[dpu_index]; i++){
+            new_nnzs_2[nnz_index].rowind = temp.rowind;
+            new_nnzs_2[nnz_index].colind = temp.colind;
+            new_nnzs_2[nnz_index].val = 0;
+            nnz_index++;
+        }
+        for(i=0; i < num_of_partitions; i++){
+            for(j=0;j<new_nnz_index_2[1][i];j++){
+                new_nnzs_2[nnz_index].rowind = new_nnz_2[1][i][j].rowind;
+                new_nnzs_2[nnz_index].colind = new_nnz_2[1][i][j].colind;
+                new_nnzs_2[nnz_index].val = new_nnz_2[1][i][j].val;
+                nnz_index++;
+            }
+        }
+        temp.rowind = dpu_info[(dpu_index)].prev_rows_dpu + dpu_info[(dpu_index)].rows_per_dpu-1;
+        temp.colind = dpu_info[(dpu_index)].prev_cols_dpu + dpu_info[(dpu_index)].cols_per_dpu-1;
+        temp.val = 0;
+        for(i=0; i<dummy_nnz_num_2[dpu_index]; i++){
+            new_nnzs_2[nnz_index].rowind = temp.rowind;
+            new_nnzs_2[nnz_index].colind = temp.colind;
+            new_nnzs_2[nnz_index].val = 0;
+            nnz_index++;
+        }
+    }
+    printf("Reconstructed COO matrix with zero-padding for load balancing on machine %d.\n", machine_id);
+
+    //free(mat->nnzs);
+    printf("Machine %d: ", machine_id);
+    mat->nnzs = new_nnzs_2;
+
+    mat->nnz = max_nnz_per_dpu * nr_of_dpus;
+
+    printf("Machine %d: ", machine_id);
+    //free used resources
+    for(i=0;i<num_of_partitions;i++){
+        free(new_nnz_2[0][i]);
+        free(new_nnz_2[1][i]);
+    }
+    printf("Finished reconstructing COO matrix for distributed setup on machine %d.\n", machine_id);
+
+    return;
+}
+
+
 // => may have to split the matrix in pieces for later use
 void reconstruct_weight(struct Matrix *mat, struct dpu_info_t *dpu_info, uint32_t max_cols_per_dpu, uint32_t nr_of_partitions){
     uint32_t nrows = mat->nrows;
@@ -459,7 +719,7 @@ void reconstruct_weight(struct Matrix *mat, struct dpu_info_t *dpu_info, uint32_
     uint32_t cols_per_dpu, prev_cols_dpu;
     int index;
 
-    T* temp = malloc(nrows * max_cols_per_dpu * nr_of_partitions * sizeof(T));
+    T* temp = (T*)malloc(nrows * max_cols_per_dpu * nr_of_partitions * sizeof(T));
     for(int i=0;i<nr_of_partitions; i++){
         cols_per_dpu = dpu_info[i].cols_per_dpu;
         prev_cols_dpu = dpu_info[i].prev_cols_dpu;
@@ -507,7 +767,7 @@ void reconstruct_mid(struct Matrix *mat, struct dpu_info_t *dpu_info, uint32_t m
     uint32_t rows_per_dpu, prev_rows_dpu;
     int index;
 
-    T* temp = malloc(ncols * max_rows_per_dpu * nr_of_partitions * sizeof(T));
+    T* temp = (T*)malloc(ncols * max_rows_per_dpu * nr_of_partitions * sizeof(T));
     for(int i=0;i<nr_of_partitions; i++){
         rows_per_dpu = dpu_info[i*nr_of_partitions].rows_per_dpu;
         prev_rows_dpu = dpu_info[i*nr_of_partitions].prev_rows_dpu;
@@ -553,6 +813,11 @@ struct COOMatrix *readCOOMatrix(const char* fileName, uint32_t nr_of_dpus, uint3
     struct COOMatrix *cooMtx;
     cooMtx = (struct COOMatrix *) malloc(sizeof(struct COOMatrix));
     FILE* fp = fopen(fileName, "r");
+    if (!fp) {
+        perror("[ERROR] fopen failed");
+        free(cooMtx);
+        return NULL;
+    }
     uint32_t rowindx, colindx;
     int32_t val;
     uint32_t dpu_num;
@@ -612,6 +877,12 @@ struct COOMatrix *readCOOMatrix(const char* fileName, uint32_t nr_of_dpus, uint3
             cooMtx->nnzs[i].val = val; 
 
             dpu_num = dpu_num_for_element(partition_info, rowindx - 1, colindx - 1, nr_of_partitions);
+            if (dpu_num >= nr_of_dpus) {
+                fprintf(stderr, "[ERROR] readCOOMatrix: dpu_num=%u out of range (nr_of_dpus=%u, nr_of_partitions=%u). If running distributed, pass total_nr_dpus here or implement mapping.\n", dpu_num, nr_of_dpus, nr_of_partitions);
+                free(line);
+                fclose(fp);
+                return NULL;
+            }
 
             cooMtx->rows[dpu_num % nr_of_partitions][rowindx - 1]++;
 
@@ -624,7 +895,7 @@ struct COOMatrix *readCOOMatrix(const char* fileName, uint32_t nr_of_dpus, uint3
     fclose(fp);
 
     sortCOOMatrix(cooMtx);
-
+    printf("[INFO] %s: Matrix Loaded and Sorted\n", strrchr(fileName, '/')+1);
     return cooMtx;
 }
 

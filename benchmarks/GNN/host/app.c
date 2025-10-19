@@ -29,15 +29,27 @@
 
 // Define the path of kernels to use here.
 #ifndef GNN_KERNEL_1
-#define GNN_KERNEL_1 "../build/benchmarks/GNN/dpu_kernel_1"
+#ifdef INT8
+#define GNN_KERNEL_1 "../build/benchmarks/GNN/dpu_kernel_1_INT8"
+#else
+#define GNN_KERNEL_1 "../build/benchmarks/GNN/dpu_kernel_1_INT32"
+#endif
 #endif
 
 #ifndef GNN_KERNEL_2
-#define GNN_KERNEL_2 "../build/benchmarks/GNN/dpu_kernel_2"
+#ifdef INT8
+#define GNN_KERNEL_2 "../build/benchmarks/GNN/dpu_kernel_2_INT8"
+#else
+#define GNN_KERNEL_2 "../build/benchmarks/GNN/dpu_kernel_2_INT32"
+#endif
 #endif
 
 #ifndef DATA_RELOCATE_AG
-#define DATA_RELOCATE_AG "../build/benchmarks/GNN/dpu_relocate_AG"
+#ifdef INT8
+#define DATA_RELOCATE_AG "../build/benchmarks/GNN/dpu_relocate_AG_INT8"
+#else
+#define DATA_RELOCATE_AG "../build/benchmarks/GNN/dpu_relocate_AG_INT32"
+#endif
 #endif
 
 //total capacity of each DPU
@@ -104,60 +116,103 @@ int transpose_num(int num, uint32_t nr_of_partitions){
 }
 
 
+static inline int8_t clamp_i8(int32_t x) {
+    if (x > 127) return 127;
+    if (x < -128) return -128;
+    return (int8_t)x;
+}
+
 static void GNN_host_mid(struct COOMatrix *A, struct Matrix *feature, T *Mid){
-
-    //reset Mid for storing new values
-    for(unsigned int row=0; row<A->nrows; row++){
-        for(unsigned int col=0; col<feature->ncols; col++){
+    //reset Mid
+    for (unsigned int row=0; row<A->nrows; row++)
+        for (unsigned int col=0; col<feature->ncols; col++)
             Mid[row*feature->ncols + col] = 0;
-        }
-    }
 
-#pragma omp parallel for num_threads(12)
-    for(unsigned int n = 0; n < A->nnz; n++){
-        for(unsigned int col = 0; col < feature->ncols; col++){
-            Mid[(A->nnzs[n].rowind * feature->ncols + col)] += feature->val[A->nnzs[n].colind * feature->ncols + col] * A->nnzs[n].val;
+#ifdef INT8
+    // int32 累加后再截断
+    const unsigned int rows = A->nrows, cols = feature->ncols;
+    int32_t *acc = (int32_t *)calloc(rows * cols, sizeof(int32_t));
+    for (unsigned int n = 0; n < A->nnz; n++) {
+        const unsigned int r = A->nnzs[n].rowind;
+        const unsigned int cind = A->nnzs[n].colind;
+        const int32_t a = (int32_t)A->nnzs[n].val;
+        for (unsigned int c = 0; c < cols; c++) {
+            acc[r * cols + c] += (int32_t)feature->val[cind * cols + c] * a;
         }
-        //if(A->nnzs[n].rowind == 0 + 342*1 + 342*0) printf("rowind : %d, colind : %d, val : %d, feature_val : %d\n", A->nnzs[n].rowind, A->nnzs[n].colind, A->nnzs[n].val, feature->val[A->nnzs[n].colind * feature->ncols]);
     }
+    for (unsigned int i = 0; i < rows * cols; i++) {
+        Mid[i] = (T)clamp_i8(acc[i]); // 如需 scale，这里乘/除 scale 再截断
+    }
+    free(acc);
+#else
+    // 原先的 int32 路径
+    #pragma omp parallel for num_threads(12)
+    for (unsigned int n = 0; n < A->nnz; n++) {
+        for (unsigned int col = 0; col < feature->ncols; col++) {
+            Mid[(A->nnzs[n].rowind * feature->ncols + col)] +=
+                feature->val[A->nnzs[n].colind * feature->ncols + col] * A->nnzs[n].val;
+        }
+    }
+#endif
 }
-
+// ...existing code...
 static void GNN_host_mid_2(struct COOMatrix *A, struct Matrix *feature, T *Mid){
-
-
-    //reset Mid for storing new values
-    for(unsigned int row=0; row<A->nrows; row++){
-        for(unsigned int col=0; col<feature->ncols; col++){
+    for (unsigned int row=0; row<A->nrows; row++)
+        for (unsigned int col=0; col<feature->ncols; col++)
             Mid[row*feature->ncols + col] = 0;
+
+#ifdef INT8
+    const unsigned int rows = A->nrows, cols = feature->ncols;
+    int32_t *acc = (int32_t *)calloc(rows * cols, sizeof(int32_t));
+    for (unsigned int n = 0; n < A->nnz; n++) {
+        const unsigned int r = A->nnzs[n].rowind;
+        const unsigned int cind = A->nnzs[n].colind;
+        const int32_t a = (int32_t)A->nnzs[n].val;
+        for (unsigned int c = 0; c < cols; c++) {
+            acc[r * cols + c] += (int32_t)feature->val[cind * cols + c] * a;
         }
     }
-#pragma omp parallel for num_threads(12)
-    for(unsigned int n = 0; n < A->nnz; n++){
-        for(unsigned int col = 0; col < feature->ncols; col++){
-            Mid[(A->nnzs[n].rowind * feature->ncols + col)] += feature->val[A->nnzs[n].colind * feature->ncols + col] * A->nnzs[n].val;
-            //if(A->nnzs[n].rowind == 12 && feature->val[A->nnzs[n].colind * feature->ncols + col] != 0) printf("feat_val : %d\n",feature->val[A->nnzs[n].colind * feature->ncols + col]);
-        }
-        //if(A->nnzs[n].rowind == 12) printf("rowind : %d, colind : %d, val : %d\n", A->nnzs[n].rowind, A->nnzs[n].colind, A->nnzs[n].val);
+    for (unsigned int i = 0; i < rows * cols; i++) {
+        Mid[i] = (T)clamp_i8(acc[i]);
     }
+    free(acc);
+#else
+    #pragma omp parallel for num_threads(12)
+    for (unsigned int n = 0; n < A->nnz; n++) {
+        for (unsigned int col = 0; col < feature->ncols; col++) {
+            Mid[(A->nnzs[n].rowind * feature->ncols + col)] +=
+                feature->val[A->nnzs[n].colind * feature->ncols + col] * A->nnzs[n].val;
+        }
+    }
+#endif
 }
-
+// ...existing code...
 static void GNN_host_rest(struct Matrix *y, T *Mid, struct Matrix *weight){
+    for (unsigned int row = 0; row < y->nrows; row++)
+        for (unsigned int col = 0; col < y->ncols; col++)
+            y->val[row * y->ncols + col] = 0;
 
-
-    //reset y values for storing new values
-    for(unsigned int row = 0; row < y->nrows; row++){
-        for(unsigned int col = 0; col < y->ncols; col++){
-            y->val[row * (y->ncols) + col] = 0;
+#ifdef INT8
+    const unsigned int rows = y->nrows, cols = y->ncols;
+    for (unsigned int r = 0; r < rows; r++) {
+        for (unsigned int c = 0; c < cols; c++) {
+            int32_t acc = 0;
+            for (unsigned int k = 0; k < cols; k++) {
+                acc += (int32_t)Mid[r * cols + k] * (int32_t)weight->val[c * cols + k];
+            }
+            y->val[r * cols + c] = (T)clamp_i8(acc);
         }
     }
-#pragma omp parallel for num_threads(12)
-    for(unsigned int row = 0; row < y->nrows; row++){
-        for(unsigned int col = 0; col < y->ncols; col++){
-            for(int i = 0; i < y->ncols; i++){
+#else
+    #pragma omp parallel for num_threads(12)
+    for (unsigned int row = 0; row < y->nrows; row++){
+        for (unsigned int col = 0; col < y->ncols; col++){
+            for (int i = 0; i < (int)y->ncols; i++){
                 y->val[row * (y->ncols) + col] += Mid[row * (y->ncols) + i] * weight->val[col * (y->ncols) + i];
             }
         }
     }
+#endif
 }
 
 //must receive num of rank as input
@@ -225,6 +280,8 @@ int main(int argc, char **argv) {
      */
 
     //partition_info
+    printf("nr_of_partitions = %d\n", nr_of_partitions);
+    
     partition_info = partition_init(nr_of_partitions, NR_TASKLETS);
 
     //create matrices => fix in case of size change
@@ -298,6 +355,8 @@ int main(int argc, char **argv) {
 
         uint32_t rows_per_dpu = partition_info->COO_row_split[j+1] - partition_info->COO_row_split[j];
         uint32_t prev_rows_dpu = partition_info->COO_row_split[j];
+
+        printf("DPU %d: cols_per_dpu=%u, rows_per_dpu=%u, nnz=%u\n", i, cols_per_dpu, rows_per_dpu, A->partitions[i]);
 
         if(cols_per_dpu > max_cols_per_dpu_A){
             max_cols_per_dpu_A = cols_per_dpu;
@@ -485,12 +544,25 @@ int main(int argc, char **argv) {
         partial_mid[i] = (T*) calloc(feature->ncols * max_rows_per_dpu_A, sizeof(T));
     }
 
+    printf(" feature->ncols: %u\n", feature->ncols);
+    printf(" max_rows_per_dpu_A: %lu\n", max_rows_per_dpu_A);
+    printf(" max_rows_per_dpu_feat: %lu\n", max_rows_per_dpu_feat);
+    printf(" max_rows_per_dpu_mid: %lu\n", max_rows_per_dpu_mid);
+    printf(" max_cols_per_dpu_w: %lu\n", max_cols_per_dpu_w);
+    printf(" max_nnz_per_dpu: %lu\n", max_nnz_per_dpu);
     //calculate total bytes sent to DPU in order to check if bytes exceeded MRAM size
     if(DPU_CAPACITY <= 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + feature->ncols * max_rows_per_dpu_A * sizeof(T) + max_rows_per_dpu_feat * feature->ncols * sizeof(T)){
         printf("size : %d\n", 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + feature->ncols * max_rows_per_dpu_A * sizeof(T) + max_rows_per_dpu_feat * feature->ncols * sizeof(T));
         printf("data size exceeded MRAM size\n");
         goto EXIT;
     }
+    printf(" DPU CAPACITY: %lu bytes\n", DPU_CAPACITY);
+    printf(" Sparse Matrix NNZs: %lu bytes\n", 2 * max_nnz_per_dpu * sizeof(struct elem_t));
+    printf(" Weight Matrix: %lu bytes\n", max_cols_per_dpu_w * weight->nrows * sizeof(T));
+    printf(" Input Feature Matrix: %lu bytes\n", feature->ncols * max_rows_per_dpu_A * sizeof(T));
+    printf(" Output Feature Matrix: %lu bytes\n", max_rows_per_dpu_feat * feature->ncols * sizeof(T));
+    printf(" Required MRAM: %lu bytes\n", 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + 
+            feature->ncols * max_rows_per_dpu_A * sizeof(T) + max_rows_per_dpu_feat * feature->ncols * sizeof(T));
 
     //send info on A and feature to DPU
     i = 0;
@@ -1036,6 +1108,8 @@ int main(int argc, char **argv) {
         i = 0;
         j=0;
         t=0;
+        printf("Cycle %d : ", cycle);
+        printf("nr_of_partitions : %d\n", nr_of_partitions);
         for(i=0;i<nr_of_partitions;i++){
             for(unsigned int row = 0; row < dpu_info_feat[i].rows_per_dpu; row++){
                 for(unsigned int col = 0; col < feature->ncols; col++){

@@ -70,7 +70,7 @@ if(ENABLE_DEBUG)
 	add_definitions("-g")
 endif()
 
-add_definitions("-D UINT32")
+# add_definitions("-D UINT32")
 
 
 set(SRCS
@@ -94,23 +94,41 @@ include_directories("${CMAKE_SOURCE_DIR}/pimnic")
 
 set(LIBRARIES ${LIBRARIES} ibverbs pthread numa gflags  mlx5)
 
-# set(BL 10 CACHE STRING "Block length for select_pim")
-
-# add_executable(select_pim  ./select_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})  
-# target_include_directories(select_pim PUBLIC ${INCLUDE_DIRECTORIES} )     
-# target_link_libraries(select_pim  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-# target_compile_definitions(select_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION} BL=${BL})
-# set_target_properties(select_pim PROPERTIES VERSION ${UPMEM_VERSION})
-# add_dependencies(select_pim gen_files)
 
 
+# Host (INT32)
+add_executable(GNN_host_int32 ./host/app.c ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_host_int32 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_host_int32 dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_host_int32 PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_host_int32 PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_host_int32 generate_output_files_GNN)
 
-add_executable(GNN_host ./host/app.c ${ALL_DPU_SOURCES} ${SRCS})
-target_include_directories(GNN_host PUBLIC ${INCLUDE_DIRECTORIES}   ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(GNN_host dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
-target_compile_definitions(GNN_host PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16)
-set_target_properties(GNN_host PROPERTIES VERSION ${UPMEM_VERSION})
-add_dependencies(GNN_host generate_output_files_GNN)
+# Host (INT8)
+add_executable(GNN_host_int8 ./host/app.c ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_host_int8 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_host_int8 dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_host_int8 PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT8)
+set_target_properties(GNN_host_int8 PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_host_int8 generate_output_files_GNN)
+
+
+# # Dist Host (INT32)
+add_executable(GNN_pim_int32 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_pim_int32 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_pim_int32 dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_pim_int32 PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_pim_int32 PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_pim_int32 generate_output_files_GNN)
+
+# # Dist Host (INT8)
+# add_executable(GNN_pim_int8 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
+# target_include_directories(GNN_pim_int8 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# target_link_libraries(GNN_pim_int8 dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+# target_compile_definitions(GNN_pim_int8 PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT8)
+# set_target_properties(GNN_pim_int8 PROPERTIES VERSION ${UPMEM_VERSION})
+# add_dependencies(GNN_pim_int8 generate_output_files_GNN)
+
 
 #Device target
 # set(INPUT_select_device_tasklets_parallel "${CMAKE_CURRENT_SOURCE_DIR}/src/select_device_tasklets_parallel.c")
@@ -144,44 +162,79 @@ add_dependencies(GNN_host generate_output_files_GNN)
 # )
 
 # DPU内核目标 - 使用自定义命令
-
-set(INPUT_dpu_kernel_1 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_1.c")
-set(OUTPUT_dpu_kernel_1 "dpu_kernel_1")
+set(INPUT_dpu_kernel_1_INT8 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_1.c")
+set(OUTPUT_dpu_kernel_1_INT8 "dpu_kernel_1_INT8")
 
 add_custom_command(
-  OUTPUT ${OUTPUT_dpu_kernel_1}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_1} -o ${OUTPUT_dpu_kernel_1}
-  DEPENDS ${INPUT_dpu_kernel_1}
-  COMMENT "Generating ${OUTPUT_dpu_kernel_1}"
+  OUTPUT ${OUTPUT_dpu_kernel_1_INT8}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT8 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_1_INT8} -o ${OUTPUT_dpu_kernel_1_INT8}
+  DEPENDS ${INPUT_dpu_kernel_1_INT8}
+  COMMENT "Generating ${OUTPUT_dpu_kernel_1_INT8}"
 )
 
 
-set(INPUT_dpu_kernel_2 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_2.c")
-set(OUTPUT_dpu_kernel_2 "dpu_kernel_2")
+set(INPUT_dpu_kernel_2_INT8 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_2.c")
+set(OUTPUT_dpu_kernel_2_INT8 "dpu_kernel_2_INT8")
 
 add_custom_command(
-  OUTPUT ${OUTPUT_dpu_kernel_2}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_2} -o ${OUTPUT_dpu_kernel_2}
-  DEPENDS ${INPUT_dpu_kernel_2}
-  COMMENT "Generating ${OUTPUT_dpu_kernel_2}"
+  OUTPUT ${OUTPUT_dpu_kernel_2_INT8}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT8 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_2_INT8} -o ${OUTPUT_dpu_kernel_2_INT8}
+  DEPENDS ${INPUT_dpu_kernel_2_INT8}
+  COMMENT "Generating ${OUTPUT_dpu_kernel_2_INT8}"
 )
 
 
-set(INPUT_dpu_relocate_AG "${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_relocate_AG.c")
-set(OUTPUT_dpu_relocate_AG "dpu_relocate_AG")
+set(INPUT_dpu_relocate_AG_INT8 "${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_relocate_AG.c")
+set(OUTPUT_dpu_relocate_AG_INT8 "dpu_relocate_AG_INT8")
 
 add_custom_command(
-  OUTPUT ${OUTPUT_dpu_relocate_AG}
-  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_relocate_AG} -o ${OUTPUT_dpu_relocate_AG}
-  DEPENDS ${INPUT_dpu_relocate_AG}
-  COMMENT "Generating ${OUTPUT_dpu_relocate_AG}"
+  OUTPUT ${OUTPUT_dpu_relocate_AG_INT8}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT8 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_relocate_AG_INT8} -o ${OUTPUT_dpu_relocate_AG_INT8}
+  DEPENDS ${INPUT_dpu_relocate_AG_INT8}
+  COMMENT "Generating ${OUTPUT_dpu_relocate_AG_INT8}"
+)
+
+
+set(INPUT_dpu_kernel_1_INT32 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_1.c")
+set(OUTPUT_dpu_kernel_1_INT32 "dpu_kernel_1_INT32")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_dpu_kernel_1_INT32}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_1_INT32} -o ${OUTPUT_dpu_kernel_1_INT32}
+  DEPENDS ${INPUT_dpu_kernel_1_INT32}
+  COMMENT "Generating ${OUTPUT_dpu_kernel_1_INT32}"
+)
+
+
+set(INPUT_dpu_kernel_2_INT32 "${CMAKE_CURRENT_SOURCE_DIR}/src/GNN_kernel_2.c")
+set(OUTPUT_dpu_kernel_2_INT32 "dpu_kernel_2_INT32")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_dpu_kernel_2_INT32}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_kernel_2_INT32} -o ${OUTPUT_dpu_kernel_2_INT32}
+  DEPENDS ${INPUT_dpu_kernel_2_INT32}
+  COMMENT "Generating ${OUTPUT_dpu_kernel_2_INT32}"
+)
+
+
+set(INPUT_dpu_relocate_AG_INT32 "${CMAKE_CURRENT_SOURCE_DIR}/src/dpu_relocate_AG.c")
+set(OUTPUT_dpu_relocate_AG_INT32 "dpu_relocate_AG_INT32")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_dpu_relocate_AG_INT32}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_dpu_relocate_AG_INT32} -o ${OUTPUT_dpu_relocate_AG_INT32}
+  DEPENDS ${INPUT_dpu_relocate_AG_INT32}
+  COMMENT "Generating ${OUTPUT_dpu_relocate_AG_INT32}"
 )
 
 
 add_custom_target(
   generate_output_files_GNN
   ALL
-  DEPENDS ${OUTPUT_dpu_kernel_1}
-  DEPENDS ${OUTPUT_dpu_kernel_2}
-  DEPENDS ${OUTPUT_dpu_relocate_AG}
+  DEPENDS ${OUTPUT_dpu_kernel_1_INT8}
+  DEPENDS ${OUTPUT_dpu_kernel_2_INT8}
+  DEPENDS ${OUTPUT_dpu_relocate_AG_INT8}
+  DEPENDS ${OUTPUT_dpu_kernel_1_INT32}
+  DEPENDS ${OUTPUT_dpu_kernel_2_INT32}
+  DEPENDS ${OUTPUT_dpu_relocate_AG_INT32}
 )
