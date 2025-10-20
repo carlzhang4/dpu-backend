@@ -215,6 +215,41 @@ static void GNN_host_rest(struct Matrix *y, T *Mid, struct Matrix *weight){
 #endif
 }
 
+static inline void stitch_second_layer_locally(
+    T **new_feat_cycle,         // 输出：按全局行分区 i 存放的连续 ncols 宽度
+    T **partial_feat,           // 输入：按全局行分区 i，内部为 P 个列分块，块宽 max_cols_per_dpu_w
+    const struct partition_info_t *pi, // 提供 w_col_split、mid_row_split
+    uint32_t nr_of_partitions,
+    uint32_t max_rows_per_dpu_mid,
+    uint32_t max_cols_per_dpu_w,
+    uint32_t ncols,
+    uint32_t machine_id
+) {
+    const uint32_t local_partitions = nr_of_partitions ;
+    const uint32_t start_partition = 0;
+    const uint32_t end_partition   = start_partition + local_partitions;
+
+    for (uint32_t i = start_partition; i < end_partition; i++) {
+        const uint32_t rows_this = pi->mid_row_split[i + 1] - pi->mid_row_split[i];
+        const uint32_t rows_copy = rows_this < max_rows_per_dpu_mid ? rows_this : max_rows_per_dpu_mid;
+
+        // 清零目标缓冲（避免填充列的残留）
+        memset(new_feat_cycle[i], 0, (size_t)max_rows_per_dpu_mid * ncols * sizeof(T));
+
+        for (uint32_t j = 0; j < nr_of_partitions; j++) {
+            const uint32_t cols_j    = pi->w_col_split[j + 1] - pi->w_col_split[j];  // 该列分区实际列数
+            const uint32_t col_off   = pi->w_col_split[j];                            // 落位起始列
+            const size_t   src_blk_e = (size_t)max_cols_per_dpu_w * max_rows_per_dpu_mid;
+
+            const T *src_blk = partial_feat[i] + (size_t)j * src_blk_e; // 源块：宽 max_cols_per_dpu_w
+            for (uint32_t r = 0; r < rows_copy; r++) {
+                const T *src_row = src_blk + (size_t)r * max_cols_per_dpu_w;
+                T       *dst_row = new_feat_cycle[i] + (size_t)r * ncols + col_off;
+                memcpy(dst_row, src_row, (size_t)cols_j * sizeof(T));
+            }
+        }
+    }
+}
 //must receive num of rank as input
 int main(int argc, char **argv) {
 
@@ -687,6 +722,10 @@ int main(int argc, char **argv) {
         new_feat_cycle[i] = (T*) calloc(max_rows_per_dpu_feat * feature->ncols, sizeof(T));
     }
 
+    printf("Allocated new_feat_cycle matrix with %d partitions\n", nr_of_partitions);
+    printf("max_rows_per_dpu_mid: %lu, feature->ncols: %u\n", max_rows_per_dpu_mid, feature->ncols);
+
+
     partial_feat = (T**)malloc(nr_of_dpus * sizeof(T*));
     for(i=0;i<nr_of_dpus;i++){
         partial_feat[i] = (T*) calloc(feature->ncols * max_rows_per_dpu_mid, sizeof(T));
@@ -749,44 +788,54 @@ int main(int argc, char **argv) {
         DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), DPU_XFER_DEFAULT));
         
         //* dump the new_feat_cycle to file for checking correctness *
-        // FILE *fptr;
-        // fptr = fopen("dpu_output_feat_cycle2.txt", "w");
-        // if(fptr == NULL){
-        //     printf("Error opening file!\n");
-        //     exit(1);
+        FILE *fptr;
+        fptr = fopen("dpu_output_feat_cycle2.txt", "w");
+        if(fptr == NULL){
+            printf("Error opening file!\n");
+            exit(1);
+        }
+        for (int i = 0; i < nr_of_partitions; i++) {
+            for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+                for (unsigned int col = 0; col < feature->ncols; col++) {
+                    uint32_t global_row = partition_info->feat_row_split[i] + row;
+                    if(global_row >= feature->nrows) continue;
+                    fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
+                }
+            }
+        }
+        fclose(fptr);
+        // DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
+        //     DPU_ASSERT(dpu_prepare_xfer(dpu, *(partial_feat + i)));
         // }
-        // for (int i = 0; i < nr_of_partitions; i++) {
-        //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
-        //         for (unsigned int col = 0; col < feature->ncols; col++) {
-        //             uint32_t global_row = partition_info->feat_row_split[i] + row;
-        //             if(global_row >= feature->nrows) continue;
-        //             fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
-        //         }
-        //     }
-        // }
-        // fclose(fptr);
-
-
-    //     int   errors_cnt = 0;
-    // for (int i = 0; i < nr_of_partitions; i++) {
-    //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
-    //         for (unsigned int col = 0; col < feature->ncols; col++) {
-    //             uint32_t global_row = partition_info->feat_row_split[i] + row;
-    //             if(global_row >= feature->nrows) continue;
-    //             if(fabs(new_feat_cycle[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]) > 0.01) {
-    //                 errors_cnt++;
-    //                 if(errors_cnt < 10) {
-    //                     printf("Error at partition %d, row %u, col %u: DPU result = %f, Host result = %f\n", i, global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // if(errors_cnt == 0) {
-    //     printf("Second GNN layer results are CORRECT!\n");
-    // } else {
-    //     printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
-    // }
+        // DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), DPU_XFER_DEFAULT));
+        // printf("max_rows_per_dpu_A %u max_rows_per_dpu_mid %u max_cols_per_dpu_w %u\n", max_rows_per_dpu_A, max_rows_per_dpu_mid, max_cols_per_dpu_w);
+        // printf("mid->ncols %u\n", mid->ncols);
+        // gather_x(new_feat_cycle, partial_feat, nr_of_partitions, dpu_info_w, max_rows_per_dpu_A, max_rows_per_dpu_mid, max_cols_per_dpu_w, mid->ncols);
+        T** TMP = (T**)malloc((nr_of_partitions) * sizeof(T*));
+    for(i=0;i<nr_of_partitions;i++){
+        TMP[i] = (T*) calloc(max_rows_per_dpu_feat * feature->ncols, sizeof(T));
+    }
+    stitch_second_layer_locally(TMP, new_feat_cycle, partition_info, nr_of_partitions, max_rows_per_dpu_feat, max_cols_per_dpu_w, feature->ncols,0);
+        int   errors_cnt = 0;
+    for (int i = 0; i < nr_of_partitions; i++) {
+        for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+            for (unsigned int col = 0; col < feature->ncols; col++) {
+                uint32_t global_row = partition_info->feat_row_split[i] + row;
+                if(global_row >= feature->nrows) continue;
+                if(fabs(TMP[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]) > 0.01) {
+                    errors_cnt++;
+                    if(errors_cnt < 10) {
+                        printf("Error at partition %d, row %u, col %u: DPU result = %f, Host result = %f\n", i, global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
+                    }
+                }
+            }
+        }
+    }
+    if(errors_cnt == 0) {
+        printf("Second GNN layer results are CORRECT!\n");
+    } else {
+        printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
+    }
 
         // Copy gathered data to DPUs
         i = 0;

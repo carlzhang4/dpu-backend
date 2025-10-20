@@ -63,6 +63,8 @@ void gather_x(T** new_mid_cycle, T** partial_mid, uint32_t nr_of_partitions, str
         for(int l=0;l<nr_of_partitions;l++){
             int i = k*nr_of_partitions + l;
             for(unsigned int row = 0; row < max_rows_per_dpu_A; row++){
+                // printf("Gathering from DPU %d to partition %d, row %d\n", i, k, row);
+                // printf("total columns to gather: %u\n", dpu_info_w[i].cols_per_dpu);
                 for(unsigned int col = 0; col < dpu_info_w[i].cols_per_dpu; col++){
                     new_mid_cycle[k][row * ncols + (dpu_info_w[i].prev_cols_dpu + col)] = partial_mid[i][row * max_cols_per_dpu_w + col];            
                 }
