@@ -295,7 +295,7 @@ void distributed_allreduce_x(T** new_feat_cycle, T** partial_feat, uint32_t nr_o
     
     // Each machine processes half of the partitions
     uint32_t local_partitions = nr_of_partitions / 2;
-    uint32_t start_partition = comm->machine_id * local_partitions;
+    uint32_t start_partition = 0;//comm->machine_id * local_partitions;
     uint32_t end_partition = start_partition + local_partitions;
     
     // Local reduction for this machine's partitions
@@ -321,46 +321,46 @@ void distributed_allreduce_x(T** new_feat_cycle, T** partial_feat, uint32_t nr_o
     }
     
     // Exchange data with the other machine
-    size_t data_size = local_partitions * max_rows_per_dpu * ncols * sizeof(T);
-    printf("Data size per exchange: %zu bytes\n", data_size);
+    // size_t data_size = local_partitions * max_rows_per_dpu * ncols * sizeof(T);
+    // printf("Data size per exchange: %zu bytes\n", data_size);
 
-    if (comm->machine_id == 0) {
-        // Send local results to machine 1
-        for(int i = start_partition; i < end_partition; i++) {
-            //printf("Machine 0: Sending partition %d to Machine 1\n", i);
-            if (send_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
-                printf("Failed to send data to machine 1\n");
-                return;
-            }
-        }
+    // if (comm->machine_id == 0) {
+    //     // Send local results to machine 1
+    //     for(int i = start_partition; i < end_partition; i++) {
+    //         //printf("Machine 0: Sending partition %d to Machine 1\n", i);
+    //         if (send_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
+    //             printf("Failed to send data to machine 1\n");
+    //             return;
+    //         }
+    //     }
         
-        // Receive results from machine 1
-        for(int i = local_partitions; i < nr_of_partitions; i++) {
-            //printf("Machine 0: Receiving partition %d from Machine 1\n", i);
-            if (receive_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
-                printf("Failed to receive data from machine 1\n");
-                return;
-            }
-        }
-    } else {
-        // Receive remote results from machine 0 into its global partition range [0, local_partitions)
-        for(int i = 0; i < (int)local_partitions; i++) {
-            //printf("Machine 1: Receiving partition %d from Machine 0\n", i);
-            if (receive_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
-                printf("Failed to receive data from machine 0\n");
-                return;
-            }
-        }
+    //     // Receive results from machine 1
+    //     for(int i = local_partitions; i < nr_of_partitions; i++) {
+    //         //printf("Machine 0: Receiving partition %d from Machine 1\n", i);
+    //         if (receive_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
+    //             printf("Failed to receive data from machine 1\n");
+    //             return;
+    //         }
+    //     }
+    // } else {
+    //     // Receive remote results from machine 0 into its global partition range [0, local_partitions)
+    //     for(int i = 0; i < (int)local_partitions; i++) {
+    //         //printf("Machine 1: Receiving partition %d from Machine 0\n", i);
+    //         if (receive_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
+    //             printf("Failed to receive data from machine 0\n");
+    //             return;
+    //         }
+    //     }
 
-        // Send this machine's local results in range [start_partition, end_partition)
-        for(int i = start_partition; i < (int)end_partition; i++) {
-            //printf("Machine 1: Sending partition %d to Machine 0\n", i);
-            if (send_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
-                printf("Failed to send data to machine 0\n");
-                return;
-            }
-        }
-    }
+    //     // Send this machine's local results in range [start_partition, end_partition)
+    //     for(int i = start_partition; i < (int)end_partition; i++) {
+    //         //printf("Machine 1: Sending partition %d to Machine 0\n", i);
+    //         if (send_data(comm, new_feat_cycle[i], data_size / local_partitions) < 0) {
+    //             printf("Failed to send data to machine 0\n");
+    //             return;
+    //         }
+    //     }
+    // }
 }
 
 void distributed_allreduce_y(T** new_feat_cycle, T** partial_feat, uint32_t nr_of_partitions, 
@@ -877,27 +877,27 @@ int main(int argc, char **argv) {
 
     // compare y_host and new_mid_cycle for correctness
     uint64_t errors_cnt = 0;
-    for(i = 0; i < nr_of_partitions; i++) {
-        for(unsigned int row = 0; row < max_rows_per_dpu_mid; row++) {
-            for(unsigned int col = 0; col < mid->ncols; col++) {
-                uint32_t global_row = partition_info->mid_row_split[i] + row;
-                if(global_row >= mid->nrows) continue;
-                T diff = std::abs(new_mid_cycle[i][row * mid->ncols + col] - y_host[global_row * mid->ncols + col]);
-                if(diff > 0.01) {
-                    errors_cnt++;
-                    // if(errors_cnt < 10) {
-                    //     printf("Mismatch at row %u, col %u: DPU result = %f, Host result = %f\n", 
-                    //            global_row, col, new_mid_cycle[i][row * mid->ncols + col], y_host[global_row * mid->ncols + col]);
-                    // }
-                }
-            }
-        }
-    }
-    if(errors_cnt == 0) {
-        printf("First GNN layer results are CORRECT!\n");
-    } else {
-        printf("First GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
-    }
+    // for(i = 0; i < nr_of_partitions; i++) {
+    //     for(unsigned int row = 0; row < max_rows_per_dpu_mid; row++) {
+    //         for(unsigned int col = 0; col < mid->ncols; col++) {
+    //             uint32_t global_row = partition_info->mid_row_split[i] + row;
+    //             if(global_row >= mid->nrows) continue;
+    //             T diff = std::abs(new_mid_cycle[i][row * mid->ncols + col] - y_host[global_row * mid->ncols + col]);
+    //             if(diff > 0.01) {
+    //                 errors_cnt++;
+    //                 // if(errors_cnt < 10) {
+    //                 //     printf("Mismatch at row %u, col %u: DPU result = %f, Host result = %f\n", 
+    //                 //            global_row, col, new_mid_cycle[i][row * mid->ncols + col], y_host[global_row * mid->ncols + col]);
+    //                 // }
+    //             }
+    //         }
+    //     }
+    // }
+    // if(errors_cnt == 0) {
+    //     printf("First GNN layer results are CORRECT!\n");
+    // } else {
+    //     printf("First GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
+    // }
 
 
     stopTimer(&timer, 3);
@@ -968,7 +968,7 @@ int main(int argc, char **argv) {
     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
         uint32_t k_local = i / nr_of_partitions;           // local row band index on this machine
         uint32_t k_global = base_row + k_local;            // global row band index (top half for machine 0, bottom half for machine 1)
-        DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[k_global]));
+        DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[i / nr_of_partitions]));
     }
     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), max_rows_per_dpu_mid * mid->ncols * sizeof(T), DPU_XFER_DEFAULT));
     
@@ -999,134 +999,61 @@ int main(int argc, char **argv) {
         DPU_XFER_DEFAULT
     ));
 
-    // 本机先把列分块拼成连续 ncols
-    // stitch_second_layer_locally(new_feat_cycle, partial_feat, partition_info,
-    //                             nr_of_partitions, max_rows_per_dpu_mid,
-    //                             max_cols_per_dpu_w, feature->ncols, (uint32_t)machine_id);
-
     // Use distributed allgather — 行高用 mid 的行高
     distributed_allgather(new_feat_cycle, partial_feat, nr_of_partitions, nr_of_dpus,
                           max_rows_per_dpu_mid, feature->ncols, &comm);
 
-    //     std::cout << "--- START DISTRIBUTED ALLGATHER FOR FINAL FEATURES ---" << std::endl;
-    // T** tmp = (T**)malloc( total_nr_dpus* sizeof(T*));
-    // for(i=0;i<total_nr_dpus;i++){
-    //     tmp[i] = (T*) calloc(feature->ncols * max_rows_per_dpu_mid, sizeof(T));
-    // }
-    //  i=0;
-    //     DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus){
-    //         DPU_ASSERT(dpu_prepare_xfer(dpu, *(tmp + i + (machine_id * nr_of_dpus))));
-    //     }
-    //     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), DPU_XFER_DEFAULT));
-    //   std::cout << "--- DISTRIBUTED ALLGATHER FOR FINAL FEATURES IN PROGRESS ---" << std::endl;
-        
-    //  if (comm.machine_id == 0) {
-    //     // Send local results to machine 1
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         send_data(&comm, tmp[i], feature->ncols * max_rows_per_dpu_mid * sizeof(T));
-    //     }
-        
-    //     // Receive results from machine 1
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         receive_data(&comm, tmp[i + nr_of_dpus], feature->ncols * max_rows_per_dpu_mid * sizeof(T));
-    //     }
-       
-    // } else {
-
-    //     // Receive results from machine 0
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         receive_data(&comm, tmp[i],feature->ncols * max_rows_per_dpu_mid * sizeof(T));
-    //     }
-        
-    //     // Send local results to machine 0
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         send_data(&comm, tmp[i + nr_of_dpus], feature->ncols * max_rows_per_dpu_mid * sizeof(T));
-    //     }
-       
-    // }
-
-    // struct dpu_info_t *dpu_info_total = (struct dpu_info_t *) malloc(total_nr_dpus * sizeof(struct dpu_info_t));
-    // if (comm.machine_id == 0) {
-    //     // Send local results to machine 1
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         dpu_info_total[i] = dpu_info_w[i];
-    //         send_data(&comm, &dpu_info_total[i], sizeof(struct dpu_info_t));
-    //     }
-    //     // Receive results from machine 1
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         receive_data(&comm, &dpu_info_total[i + nr_of_dpus], sizeof(struct dpu_info_t));
-    //     }
-    // } else {
-    //     // Receive results from machine 0
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         receive_data(&comm, &dpu_info_total[i], sizeof(struct dpu_info_t));
-    //     }
-    //     // Send local results to machine 0
-    //     for(int i = 0;i< nr_of_dpus;i++){
-    //         dpu_info_total[i + nr_of_dpus] = dpu_info_w[i];
-    //         send_data(&comm, &dpu_info_total[i + nr_of_dpus], sizeof(struct dpu_info_t));
-    //     }
-
-    // }
-    // for(i=0;i<nr_of_dpus;i++){
-    //     printf("Received DPU %d info: cols_per_dpu=%u, prev_cols_dpu=%u\n", i, dpu_info_w[i].cols_per_dpu, dpu_info_w[i].prev_cols_dpu);
-    // }
-    // printf("===============================================\n");
-    // //* print dpu_info_total for debugging
-    // for(i=0;i<total_nr_dpus;i++){
-    //     printf("DPU %d: cols_per_dpu=%u, prev_cols_dpu=%u\n", i, dpu_info_total[i].cols_per_dpu, dpu_info_total[i].prev_cols_dpu);
-    // }
 
     // getchar();
     // printf("max_rows_per_dpu_A %u max_rows_per_dpu_mid %u max_cols_per_dpu_w %u\n", max_rows_per_dpu_A, max_rows_per_dpu_mid, max_cols_per_dpu_w);
     // printf("mid->ncols %u\n", mid->ncols);
     // gather_x(new_feat_cycle, tmp, nr_of_partitions, dpu_info_w, max_rows_per_dpu_A, max_rows_per_dpu_mid, max_cols_per_dpu_w, mid->ncols);
-    printf("--- COMPLETED DISTRIBUTED ALLGATHER FOR FINAL FEATURES ---\n");
-    if(machine_id == 0) {
-        FILE *fptr;
-        fptr = fopen("dpu_output_feat_cycle1.txt", "w");
-        if(fptr == NULL){
-            printf("Error opening file!\n");
-            exit(1);
-        }
-        for (int i = 0; i < nr_of_partitions; i++) {
-            for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
-                for (unsigned int col = 0; col < feature->ncols; col++) {
-                    uint32_t global_row = partition_info->feat_row_split[i] + row;
-                    if(global_row >= feature->nrows) continue;
-                    fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
-                }
-            }
-        }
-        fclose(fptr);
-    }
+    //printf("--- COMPLETED DISTRIBUTED ALLGATHER FOR FINAL FEATURES ---\n");
+    // if(machine_id == 0) {
+    //     FILE *fptr;
+    //     fptr = fopen("dpu_output_feat_cycle1.txt", "w");
+    //     if(fptr == NULL){
+    //         printf("Error opening file!\n");
+    //         exit(1);
+    //     }
+    //     for (int i = 0; i < nr_of_partitions; i++) {
+    //         for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+    //             for (unsigned int col = 0; col < feature->ncols; col++) {
+    //                 uint32_t global_row = partition_info->feat_row_split[i] + row;
+    //                 if(global_row >= feature->nrows) continue;
+    //                 fprintf(fptr, "%d\n", new_feat_cycle[i][row * feature->ncols + col]);
+    //             }
+    //         }
+    //     }
+    //     fclose(fptr);
+    // }
     //* compare y_final and new_feat_cycle for correctness
-    T** TMP = (T**)malloc((nr_of_partitions) * sizeof(T*));
-    for(i=0;i<nr_of_partitions;i++){
-        TMP[i] = (T*) calloc(max_rows_per_dpu_feat * feature->ncols, sizeof(T));
-    }
-    stitch_second_layer_locally(TMP, new_feat_cycle, partition_info, nr_of_partitions, max_rows_per_dpu_feat, max_cols_per_dpu_w, feature->ncols);
+    // T** TMP = (T**)malloc((nr_of_partitions) * sizeof(T*));
+    // for(i=0;i<nr_of_partitions;i++){
+    //     TMP[i] = (T*) calloc(max_rows_per_dpu_feat * feature->ncols, sizeof(T));
+    // }
+    // stitch_second_layer_locally(TMP, new_feat_cycle, partition_info, nr_of_partitions, max_rows_per_dpu_feat, max_cols_per_dpu_w, feature->ncols);
     
-    errors_cnt = 0;
-    for (int i = 0; i < nr_of_partitions; i++) {
-        for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
-            for (unsigned int col = 0; col < feature->ncols; col++) {
-                uint32_t global_row = partition_info->feat_row_split[i] + row;
-                if(global_row >= feature->nrows) continue;
-                if(fabs(TMP[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]) > 0.01) {
-                    errors_cnt++;
-                    if(errors_cnt < 10) {
-                        printf("Error at partition %d, row %u, col %u: DPU result = %f, Host result = %f\n", i, global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
-                    }
-                }
-            }
-        }
-    }
-    if(errors_cnt == 0) {
-        printf("Second GNN layer results are CORRECT!\n");
-    } else {
-        printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
-    }
+    // errors_cnt = 0;
+    // for (int i = 0; i < nr_of_partitions; i++) {
+    //     for (unsigned int row = 0; row < max_rows_per_dpu_feat; row++) {
+    //         for (unsigned int col = 0; col < feature->ncols; col++) {
+    //             uint32_t global_row = partition_info->feat_row_split[i] + row;
+    //             if(global_row >= feature->nrows) continue;
+    //             if(fabs(TMP[i][row * feature->ncols + col] - y_final->val[global_row * feature->ncols + col]) > 0.01) {
+    //                 errors_cnt++;
+    //                 if(errors_cnt < 10) {
+    //                     printf("Error at partition %d, row %u, col %u: DPU result = %f, Host result = %f\n", i, global_row, col, new_feat_cycle[i][row * feature->ncols + col], y_final->val[global_row * feature->ncols + col]);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // if(errors_cnt == 0) {
+    //     printf("Second GNN layer results are CORRECT!\n");
+    // } else {
+    //     printf("Second GNN layer results are INCORRECT! Total errors: %lu\n", errors_cnt);
+    // }
 
     // Copy gathered data to DPUs
     i = 0;
@@ -1138,7 +1065,11 @@ int main(int argc, char **argv) {
     stopTimer(&timer, 9);
     
     total_time += (timer.time[6] + timer.time[8] + timer.time[9]) / (1000);
-    
+    float all_gather_time = timer.time[9] / 1000.0;
+    float dpu_kernel_1_time = (timer.time[2] ) / 1000.0;
+    float dpu_kernel_2_time = (timer.time[8] ) / 1000.0;
+
+
     // Additional cycles (simplified for this example)
     // for(int cycle = 2; cycle <= cycle_num; cycle++) {
     //     printf("[INFO] Machine %d: Processing cycle %d\n", machine_id, cycle);
@@ -1179,6 +1110,9 @@ EXIT:
     cleanup_socket_communication(&comm);
     
     printf("[INFO] Machine %d: Total execution time = %f ms\n", machine_id, total_time);
+    printf("[INFO] Machine %d: All-gather time = %f ms\n", machine_id, all_gather_time);
+    printf("[INFO] Machine %d: DPU Kernel 1 time = %f ms\n", machine_id, dpu_kernel_1_time);
+    printf("[INFO] Machine %d: DPU Kernel 2 time = %f ms\n", machine_id, dpu_kernel_2_time);
     
     return 0;
 }

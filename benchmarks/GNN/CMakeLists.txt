@@ -121,6 +121,13 @@ target_compile_definitions(GNN_pim_int32 PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSI
 set_target_properties(GNN_pim_int32 PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_pim_int32 generate_output_files_GNN)
 
+add_executable(GNN_RDMA_pim ./host/GNN_RDMA_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_RDMA_pim PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_RDMA_pim dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_RDMA_pim PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_RDMA_pim PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_RDMA_pim generate_output_files_GNN)
+
 # # Dist Host (INT8)
 # add_executable(GNN_pim_int8 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
 # target_include_directories(GNN_pim_int8 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
