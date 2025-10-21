@@ -678,7 +678,10 @@ int main(int argc, char **argv) {
         target_offset = 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T);
         buffer_offset = 32*1024*1024;
         total_data_size = feature->ncols * max_rows_per_dpu_A * sizeof(T);
-
+        printf("total_data_size: %u\n", total_data_size);
+        printf("start_offset: %u\n", start_offset);
+        printf("target_offset: %u\n", target_offset);
+        printf("buffer_offset: %u\n", buffer_offset);
         startTimer(&timer, 3);
         pidcomm_all_reduce(hypercube_manager, "100", total_data_size, start_offset, target_offset, buffer_offset, sizeof(T), 0);
         stopTimer(&timer, 3);

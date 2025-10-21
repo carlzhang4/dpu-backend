@@ -128,6 +128,19 @@ target_compile_definitions(GNN_RDMA_pim PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(GNN_RDMA_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_RDMA_pim generate_output_files_GNN)
 
+add_executable(GNN_all_reduce_test ./host/GNN_all_reduce_test.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_all_reduce_test PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_all_reduce_test dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_all_reduce_test PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_all_reduce_test PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_all_reduce_test generate_output_files_GNN)
+
+add_executable(GNN_all_reduce_test_2d ./host/GNN_all_reduce_test_2d.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_all_reduce_test_2d PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_all_reduce_test_2d dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_all_reduce_test_2d PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_all_reduce_test_2d PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_all_reduce_test_2d generate_output_files_GNN)
 # # Dist Host (INT8)
 # add_executable(GNN_pim_int8 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
 # target_include_directories(GNN_pim_int8 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -234,6 +247,15 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_dpu_relocate_AG_INT32}"
 )
 
+set(INPUT_all_reduce_kernel "${CMAKE_CURRENT_SOURCE_DIR}/src/all_reduce_kernel.c")
+set(OUTPUT_all_reduce_kernel "all_reduce_kernel")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_all_reduce_kernel}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT32 -DNR_TASKLETS=16 -DBL=10 ${INPUT_all_reduce_kernel} -o ${OUTPUT_all_reduce_kernel}
+  DEPENDS ${INPUT_all_reduce_kernel}
+  COMMENT "Generating ${OUTPUT_all_reduce_kernel}"
+)
 
 add_custom_target(
   generate_output_files_GNN
@@ -244,4 +266,5 @@ add_custom_target(
   DEPENDS ${OUTPUT_dpu_kernel_1_INT32}
   DEPENDS ${OUTPUT_dpu_kernel_2_INT32}
   DEPENDS ${OUTPUT_dpu_relocate_AG_INT32}
+  DEPENDS ${OUTPUT_all_reduce_kernel}
 )
