@@ -128,6 +128,14 @@ target_compile_definitions(GNN_RDMA_pim PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(GNN_RDMA_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_RDMA_pim generate_output_files_GNN)
 
+add_executable(GNN_RDMA_pim_AR ./host/GNN_RDMA_pim_AR.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_RDMA_pim_AR PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_RDMA_pim_AR dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_RDMA_pim_AR PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_RDMA_pim_AR PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_RDMA_pim_AR generate_output_files_GNN)
+
+
 add_executable(GNN_all_reduce_test ./host/GNN_all_reduce_test.cpp ${ALL_DPU_SOURCES} ${SRCS})
 target_include_directories(GNN_all_reduce_test PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(GNN_all_reduce_test dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
@@ -141,6 +149,8 @@ target_link_libraries(GNN_all_reduce_test_2d dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_TH
 target_compile_definitions(GNN_all_reduce_test_2d PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
 set_target_properties(GNN_all_reduce_test_2d PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_all_reduce_test_2d generate_output_files_GNN)
+
+
 # # Dist Host (INT8)
 # add_executable(GNN_pim_int8 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})
 # target_include_directories(GNN_pim_int8 PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)

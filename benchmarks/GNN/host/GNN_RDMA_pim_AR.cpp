@@ -66,6 +66,10 @@ extern "C" {
 #define DATA_RELOCATE_AG "../build/benchmarks/GNN/dpu_relocate_AG_INT32"
 #endif
 
+#ifndef DPU_REDUCE_KERNEL
+#define DPU_REDUCE_KERNEL "../build/benchmarks/GNN/all_reduce_kernel"
+#endif
+
 #define DPU_CAPACITY (63 << 20)
 
 uint64_t get_tscp(void)
@@ -118,6 +122,8 @@ static T **partial_feat;
 uint64_t magic_number = 0;
 uint64_t* magic_offset_ptr1 = nullptr;
 uint64_t* magic_offset_ptr2 = nullptr;
+
+Timer timer;
 
 int transpose_num(int num, uint32_t nr_of_partitions){
     int a = num/nr_of_partitions;
@@ -212,6 +218,235 @@ int receive_data(int socket_fd, void *data, size_t size) {
 }
 
 // Distributed communication functions
+// Data relocation function for PIM all-reduce (similar to GNN_all_reduce_test_2d.cpp)
+// void relocate_data_for_pim_allreduce(T** source_data, T** relocated_data, 
+//                                     uint32_t nr_of_partitions, uint32_t nr_of_dpus, 
+//                                     uint32_t max_rows_per_dpu, uint32_t ncols) {
+//     uint32_t node_num = nr_of_partitions;
+//     uint32_t local_num_per_node = max_rows_per_dpu / node_num;
+    
+//     for(int k = 0; k < nr_of_partitions; k++) {
+//         for(int i = 0; i < node_num * max_rows_per_dpu; i++) {
+//             int id_belonged = i % max_rows_per_dpu;
+//             int dpu_id = id_belonged % node_num;
+//             int order_in_dpu = id_belonged / node_num;
+//             int node_id = i / max_rows_per_dpu;
+            
+//             for(uint32_t col = 0; col < ncols; col++) {
+//                 relocated_data[k][local_num_per_node * node_num * dpu_id + order_in_dpu * node_num + node_id + col * max_rows_per_dpu * node_num] = 
+//                     source_data[k][i + col * max_rows_per_dpu];
+//             }
+//         }
+//     }
+// }
+
+// // Function to retrieve and reorder data from PIM all-reduce results
+// void retrieve_and_reorder_pim_results(T** pim_results, T** final_results,
+//                                      uint32_t nr_of_partitions, uint32_t nr_of_dpus,
+//                                      uint32_t max_rows_per_dpu, uint32_t ncols) {
+//     uint32_t node_num = nr_of_partitions;
+//     uint32_t local_num_per_node = max_rows_per_dpu*ncols / node_num;
+    
+//     std::cout << "node num " << node_num << ", local num per node " << local_num_per_node << std::endl;
+    
+//     for(int k = 0; k < nr_of_partitions; k++) {
+//         for(int i = 0; i < max_rows_per_dpu* ncols; i++) {
+//             //int dpu_id = i % node_num;
+//             int dpu_id = i% node_num;
+//             final_results[k][i] = 
+//                 pim_results[k][local_num_per_node * dpu_id + i/node_num];
+//         }
+//     }
+// }
+
+// DPU-based all-reduce function using DPU_REDUCE_KERNEL
+void dpu_allreduce_x(T** new_feat_cycle, T** partial_mid, uint32_t nr_of_partitions,
+                     uint32_t nr_of_dpus, uint32_t max_rows_per_dpu, uint32_t ncols,
+                     struct dpu_set_t dpu_set) {
+    const uint32_t node_num = nr_of_partitions;                 // P
+    const uint32_t dpus_per_row_band = node_num;                // 一个行分区对应 P 个 DPU（每个列分区一个）
+
+    // 将每个行分区的 rows 划分为 P 份（向上取整），每个 DPU 负责其中一份的所有列
+    uint64_t rows_per_shard = (max_rows_per_dpu + node_num - 1) / node_num; // ceil(rows / P)
+    uint64_t local_num = rows_per_shard * (uint64_t)ncols;      // 每个 DPU 输出元素个数
+
+    // 任务划分要求 local_num 能被 TASKLETS 整除；需要做 padding
+    const uint64_t TASKLETS = 16; // NR_TASKLETS used in the kernel build
+    uint64_t local_num_padded = (local_num + TASKLETS - 1) / TASKLETS * TASKLETS;
+
+    // MRAM 限制：输入 shard_data 长度 = local_num_padded * node_num；reduce_result 长度 = local_num_padded
+    //const uint64_t max_reduce_elems = 1UL * 1024 * 1024; // MUST match MAX_REDUCE_SIZE in kernel
+    // if (local_num_padded > max_reduce_elems || local_num_padded * node_num > max_reduce_elems) {
+    //     // 超过 DPU 内核容量，回退到主机 allreduce，确保正确性
+    //     fprintf(stderr, "[WARN] dpu_allreduce_x: exceeds DPU reduce capacity (local_num=%lu, P=%u). Fallback to host reduce.\n",
+    //             (unsigned long)local_num_padded, node_num);
+    //     // Host-side sum equivalent to distributed_allreduce_x
+    //     const uint32_t local_row_bands = nr_of_dpus / dpus_per_row_band; // 本机行分区数量
+    //     for (uint32_t part = 0; part < local_row_bands; part++) {
+    //         for (uint32_t r = 0; r < max_rows_per_dpu; r++) {
+    //             for (uint32_t c = 0; c < ncols; c++) {
+    //                 T acc = 0;
+    //                 for (uint32_t j = 0; j < node_num; j++) {
+    //                     const uint32_t dpu_idx = part * node_num + j;
+    //                     acc += partial_mid[dpu_idx][(size_t)r * ncols + c];
+    //                 }
+    //                 new_feat_cycle[part][(size_t)r * ncols + c] = acc;
+    //             }
+    //         }
+    //     }
+    //     // Broadcast to DPUs' reduce_result (optional but keeps the same behavior below)
+    //     int l; struct dpu_set_t dpu;
+    //     DPU_FOREACH(dpu_set, dpu, l) {
+    //         const uint32_t part_id = (uint32_t)l / node_num;
+    //         DPU_ASSERT(dpu_prepare_xfer(dpu, new_feat_cycle[part_id]));
+    //     }
+    //     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "reduce_result", 0,
+    //                              (size_t)max_rows_per_dpu * ncols * sizeof(T), DPU_XFER_DEFAULT));
+    //     // Retrieve back (first shard only stores, others to scratch)
+    //     T *scratch = (T*)malloc((size_t)max_rows_per_dpu * ncols * sizeof(T));
+    //     if (!scratch) { perror("alloc scratch"); }
+    //     DPU_FOREACH(dpu_set, dpu, l) {
+    //         const uint32_t part_id = (uint32_t)l / node_num;
+    //         const uint32_t shard   = (uint32_t)l % node_num;
+    //         T *dst = (shard == 0) ? new_feat_cycle[part_id] : scratch;
+    //         DPU_ASSERT(dpu_prepare_xfer(dpu, dst));
+    //     }
+    //     DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, "reduce_result", 0,
+    //                              (size_t)max_rows_per_dpu * ncols * sizeof(T), DPU_XFER_DEFAULT));
+    //     if (scratch) free(scratch);
+    //     return;
+    // }
+
+    // 预分配每个 DPU 的输入/输出缓冲
+    T **per_dpu_in  = (T**)malloc((size_t)nr_of_dpus * sizeof(T*));
+    T **per_dpu_out = (T**)malloc((size_t)nr_of_dpus * sizeof(T*));
+    if (!per_dpu_in || !per_dpu_out) { perror("alloc per_dpu buffers"); exit(EXIT_FAILURE); }
+    for (uint32_t l = 0; l < nr_of_dpus; l++) {
+        per_dpu_in[l]  = (T*)calloc((size_t)local_num_padded * node_num, sizeof(T));
+        per_dpu_out[l] = (T*)calloc((size_t)local_num_padded, sizeof(T));
+        if (!per_dpu_in[l] || !per_dpu_out[l]) { perror("calloc per_dpu io"); exit(EXIT_FAILURE); }
+    }
+    
+
+    
+    // 将 partial_mid 整理为每个 DPU 的 shard_data：按组装 node_num 个贡献/输出
+    const uint32_t local_row_bands = nr_of_dpus / dpus_per_row_band; // 本机行分区数量
+    startTimer(&timer, 11);
+    for (uint32_t part = 0; part < local_row_bands; part++) {
+        for (uint32_t shard = 0; shard < node_num; shard++) {
+            const uint32_t l = part * node_num + shard; // 本机 DPU 线性索引
+            T *dst = per_dpu_in[l];
+            // 遍历该 shard 负责的输出 i in [0, local_num)
+            for (uint64_t i = 0; i < local_num; i++) {
+                const uint64_t row_in_shard = i / ncols;      // 该 shard 内的行
+                const uint32_t c            = (uint32_t)(i % ncols);
+                const uint64_t r_global     = (uint64_t)shard * rows_per_shard + row_in_shard; // 在该行分区内的全局行
+                // 将 P 个贡献写入一个组
+                for (uint32_t j = 0; j < node_num; j++) {
+                    const uint64_t dst_idx = i * node_num + j; // shard_data 索引
+                    if (r_global < max_rows_per_dpu) {
+                        const uint32_t dpu_src = part * node_num + j; // 源 DPU（列分区 j）
+                        dst[dst_idx] = partial_mid[dpu_src][r_global * (size_t)ncols + c];
+                    } else {
+                        dst[dst_idx] = (T)0; // 越界行补 0
+                    }
+                }
+            }
+            // 其余 padding 部分保持 0
+        }
+    }
+    stopTimer(&timer, 11);
+    
+
+    // 加载 all-reduce kernel
+    DPU_ASSERT(dpu_load(dpu_set, DPU_REDUCE_KERNEL, NULL));
+    
+    
+
+    // 发送参数到 DPUs
+    uint64_t *local_num_ptr = (uint64_t*)aligned_alloc(64, sizeof(uint64_t));
+    uint64_t *node_num_ptr  = (uint64_t*)aligned_alloc(64, sizeof(uint64_t));
+    *local_num_ptr = local_num_padded;
+    *node_num_ptr  = node_num;
+    startTimer(&timer, 4);
+    int l; struct dpu_set_t dpu;
+    DPU_FOREACH(dpu_set, dpu, l) { DPU_ASSERT(dpu_prepare_xfer(dpu, local_num_ptr)); }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "local_num", 0, sizeof(uint64_t), DPU_XFER_DEFAULT));
+    DPU_FOREACH(dpu_set, dpu, l) { DPU_ASSERT(dpu_prepare_xfer(dpu, node_num_ptr)); }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "node_num", 0, sizeof(uint64_t), DPU_XFER_DEFAULT));
+
+    // 发送每个 DPU 的 shard_data（长度 local_num_padded * node_num）
+    DPU_FOREACH(dpu_set, dpu, l) {
+        DPU_ASSERT(dpu_prepare_xfer(dpu, per_dpu_in[l]));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "shard_data", 0,
+                             (size_t)local_num_padded * node_num * sizeof(T), DPU_XFER_DEFAULT));
+
+    stopTimer(&timer, 4);
+    // 启动计算
+    startTimer(&timer, 5);
+    DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
+    stopTimer(&timer, 5);
+    startTimer(&timer, 6);
+    // 取回每个 DPU 的 reduce_result（长度 local_num_padded）
+    DPU_FOREACH(dpu_set, dpu, l) {
+        DPU_ASSERT(dpu_prepare_xfer(dpu, per_dpu_out[l]));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, "reduce_result", 0,
+                             (size_t)local_num_padded * sizeof(T), DPU_XFER_DEFAULT));
+
+    // 将各 shard 的结果拼接为每个行分区的连续 rows*ncols
+    T **tmp_results = (T**)malloc((size_t) (nr_of_dpus / dpus_per_row_band) * sizeof(T*));
+    for (uint32_t part = 0; part < nr_of_dpus / dpus_per_row_band; part++) {
+        tmp_results[part] = (T*)calloc((size_t)max_rows_per_dpu * ncols, sizeof(T));
+    }
+    for (uint32_t part = 0; part < nr_of_dpus / dpus_per_row_band; part++) {
+        for (uint32_t shard = 0; shard < node_num; shard++) {
+            const uint32_t idx_dpu = part * node_num + shard;
+            const T *src = per_dpu_out[idx_dpu];
+            for (uint64_t i = 0; i < local_num; i++) { // 只用到未 padding 的部分
+                const uint64_t row_in_shard = i / ncols;
+                const uint32_t c            = (uint32_t)(i % ncols);
+                const uint64_t r_global     = (uint64_t)shard * rows_per_shard + row_in_shard;
+                if (r_global < max_rows_per_dpu) {
+                    tmp_results[part][r_global * (size_t)ncols + c] = src[i];
+                }
+            }
+        }
+    }
+
+    // 广播拼接后的结果回到各 DPU 的 reduce_result
+    DPU_FOREACH(dpu_set, dpu, l) {
+        const uint32_t part_id = (uint32_t)l / node_num;
+        DPU_ASSERT(dpu_prepare_xfer(dpu, tmp_results[part_id]));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, "reduce_result", 0,
+                             (size_t)max_rows_per_dpu * ncols * sizeof(T), DPU_XFER_DEFAULT));
+
+    // 主机侧也需要最终结果：每个行分区读取一次，其余读到 scratch
+    T *scratch = (T*)malloc((size_t)max_rows_per_dpu * ncols * sizeof(T));
+    if (!scratch) { perror("alloc scratch"); }
+    DPU_FOREACH(dpu_set, dpu, l) {
+        const uint32_t part_id = (uint32_t)l / node_num;
+        const uint32_t shard   = (uint32_t)l % node_num;
+        T *dst = (shard == 0) ? new_feat_cycle[part_id] : scratch;
+        DPU_ASSERT(dpu_prepare_xfer(dpu, dst));
+    }
+    DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, "reduce_result", 0,
+                             (size_t)max_rows_per_dpu * ncols * sizeof(T), DPU_XFER_DEFAULT));
+    if (scratch) free(scratch);
+    stopTimer(&timer, 6);
+    // 释放资源
+    for (uint32_t lidx = 0; lidx < nr_of_dpus; lidx++) {
+        free(per_dpu_in[lidx]);
+        free(per_dpu_out[lidx]);
+    }
+    free(per_dpu_in);
+    free(per_dpu_out);
+    free(local_num_ptr);
+    free(node_num_ptr);
+}
+
 void distributed_allreduce_x(T** new_feat_cycle, T** partial_feat, uint32_t nr_of_partitions, 
                             uint32_t nr_of_dpus, uint32_t max_rows_per_dpu, uint32_t ncols) {
     
@@ -418,7 +653,7 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
 	memset(buf, 0, BUF_SIZE);
 	uint32_t nr_dpus = DPU_NUM/2;
 	uint32_t nr_partition = sqrt(DPU_NUM);
-	Timer timer;
+	
     float total_time = 0.0;
     bool status = true;
     unsigned int n = 0, t = 0;
@@ -685,7 +920,7 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
     y_final->ncols = feature->ncols;
 
 	memcpy(feature->val, feature->val, feature->ncols * feature->ncols * sizeof(T));
-	double t1=0,t2=0,t3=0,t4=0,t5=0,t6=0,t7=0,t8 =0;
+	double t1=0,t2=0,t3=0,t4=0,t5=0,t6=0,t7=0,t8 =0,t9=0,t10=0,t11=0;
     
     for(uint64_t ite=0;ite<ITERATIONS;ite++){
 		GNN_host_mid(B, feature, y_host);
@@ -742,33 +977,29 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
 
 		std::cout << "--- RETRIEVING RESULTS FROM DPUS ---" << std::endl;
 		
-		// Retrieve results and perform distributed allreduce
+        // Retrieve results and perform allreduce
 		startTimer(&timer, 3);
 		
-		i = 0;
-		// DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
-		// 	DPU_ASSERT(dpu_prepare_xfer(dpu, *(partial_mid + i)));
-		// }
-		// DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T), feature->ncols * max_rows_per_dpu_A * sizeof(T), DPU_XFER_DEFAULT));
+        // Retrieve first-layer partial results from DPUs into partial_mid (rows per DPU = A row block size)
+        i = 0;
+        DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
+            DPU_ASSERT(dpu_prepare_xfer(dpu, *(partial_mid + i)));
+        }
+        DPU_ASSERT(dpu_push_xfer(
+            dpu_set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME,
+            2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T),
+            feature->ncols * max_rows_per_dpu_A * sizeof(T),
+            DPU_XFER_DEFAULT));
 		stopTimer(&timer, 3);
 		// Use distributed allreduce instead of local allreduce
 
-		//std::cout << "--- DISTRIBUTED ALLREDUCE FOR MID RESULTS ---" << std::endl;
-		startTimer(&timer, 4);
+		std::cout << "--- DPU ALLREDUCE FOR MID RESULTS ---" << std::endl;
+		// startTimer(&timer, 4);
+    // First-layer reduction uses A's row block size
+        dpu_allreduce_x(new_mid_cycle, partial_mid, nr_of_partitions, nr_of_dpus, max_rows_per_dpu_A, mid->ncols, dpu_set);
         //distributed_allreduce_x(new_mid_cycle, partial_mid, nr_of_partitions, nr_of_dpus, max_rows_per_dpu_mid, mid->ncols);
-		uint32_t start_offset = 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T);
-        uint32_t target_offset = 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T);
-        uint32_t buffer_offset = 32*1024*1024;
-        uint32_t total_data_size = feature->ncols * max_rows_per_dpu_A * sizeof(T);
-        printf("total_data_size: %u\n", total_data_size);
-        printf("start_offset: %u\n", start_offset);
-        printf("target_offset: %u\n", target_offset);
-        printf("buffer_offset: %u\n", buffer_offset);
-
-        pidcomm_all_reduce(hypercube_manager, "100", total_data_size, start_offset, target_offset, buffer_offset, sizeof(T), 0);
-            
-        
-        stopTimer(&timer, 4);
+		
+        // stopTimer(&timer, 4);
 		
 		//std::cout << "--- COMPLETED DISTRIBUTED ALLREDUCE FOR MID RESULTS ---" << std::endl;
 
@@ -832,25 +1063,25 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
 		} 
 		DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t), max_cols_per_dpu_w * weight->nrows * sizeof(T), DPU_XFER_DEFAULT));
 		
-        startTimer(&timer, 5);
+        startTimer(&timer, 7);
 		// Copy mid results to DPUs (load top/bottom halves based on machine id)
 		i = 0;
-		// DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
-		// 	uint32_t k_local = i / nr_of_partitions;           // local row band index on this machine
-		// 	uint32_t k_global = base_row + k_local;            // global row band index (top half for machine 0, bottom half for machine 1)
-		// 	DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[i / nr_of_partitions]));
-		// }
-		// DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), max_rows_per_dpu_mid * mid->ncols * sizeof(T), DPU_XFER_DEFAULT));
+		DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
+			uint32_t k_local = i / nr_of_partitions;           // local row band index on this machine
+			uint32_t k_global = base_row + k_local;            // global row band index (top half for machine 0, bottom half for machine 1)
+			DPU_ASSERT(dpu_prepare_xfer(dpu, new_mid_cycle[i / nr_of_partitions]));
+		}
+		DPU_ASSERT(dpu_push_xfer(dpu_set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 2 * max_nnz_per_dpu * sizeof(struct elem_t) + max_cols_per_dpu_w * weight->nrows * sizeof(T) + max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T), max_rows_per_dpu_mid * mid->ncols * sizeof(T), DPU_XFER_DEFAULT));
 		
-		stopTimer(&timer, 5);
+		stopTimer(&timer, 7);
 		
 		// Run kernel on DPUs
-		startTimer(&timer, 6);
+		startTimer(&timer, 8);
 		DPU_ASSERT(dpu_launch(dpu_set, DPU_SYNCHRONOUS));
-		stopTimer(&timer, 6);
-		
+		stopTimer(&timer, 8);
+
 		// Perform distributed allgather
-		startTimer(&timer, 7);
+		startTimer(&timer, 9);
 		 i = 0;
         DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
         uint32_t k_local  = i / nr_of_partitions;             // 本机行带索引
@@ -867,12 +1098,12 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
 			max_cols_per_dpu_w * max_rows_per_dpu_mid * sizeof(T),
 			DPU_XFER_DEFAULT
 		));
-        stopTimer(&timer, 7);
-        startTimer(&timer, 8);
+        stopTimer(&timer, 9);
+        startTimer(&timer, 10);
 		// Use distributed allgather — 行高用 mid 的行高
 		distributed_allgather_RDMA(handler, buf,new_feat_cycle, partial_feat, nr_of_partitions, nr_of_dpus,
 							max_rows_per_dpu_mid, feature->ncols, &net_param);
-        stopTimer(&timer, 8);
+        stopTimer(&timer, 10);
 
 		 i = 0;
 		DPU_FOREACH_ENTANGLED_GROUP(dpu_set, dpu, i, nr_dpus) {
@@ -916,6 +1147,9 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
         t6 += timer.time[6] / 1000.0;
         t7 += timer.time[7] / 1000.0;
         t8 += timer.time[8] / 1000.0;
+        t9 += timer.time[9] / 1000.0;
+        t10 += timer.time[10] / 1000.0;
+        t11 += timer.time[11] / 1000.0;
     }
     std::cout << "t1: " << t1 << "ms" << std::endl;
     std::cout << "t2: " << t2 << "ms" << std::endl;
@@ -925,12 +1159,15 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
     std::cout << "t6: " << t6 << "ms" << std::endl;
     std::cout << "t7: " << t7 << "ms" << std::endl;
     std::cout << "t8: " << t8 << "ms" << std::endl;
-	std::cout << "total time: " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 << "ms" << std::endl;
-	std::cout << "host memory -- dpu memcpy time: " << t1+ t3 + t5 +  t7 + t8 << "ms" << std::endl;
-    DPU_ASSERT(dpu_free(dpu_set));
+    std::cout << "t9: " << t9 << "ms" << std::endl;
+    std::cout << "t10: " << t10 << "ms" << std::endl;
+    std::cout << "t11: " << t11 << "ms" << std::endl;
+
+	std::cout << "total time: " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 << "ms" << std::endl;
+	DPU_ASSERT(dpu_free(dpu_set));
     std::ofstream latency_file;
 	latency_file.open("GNN_RDMA_pim_latency_PID.txt", std::ios::app);
-	latency_file  << DPU_NUM << " " << feature_dim << " " << t1 << " " << t2 << " " << t3 << " " << t4 << " " << t5 << " " << t6 << " " << t7 << " " << t8 << " " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 << " " << t1+ t3 + t5 +  t7 + t8 << std::endl;
+	latency_file  << DPU_NUM << " " << feature_dim << " " << t1 << " " << t2 << " " << t3 << " " << t4 << " " << t5 << " " << t6 << " " << t7 << " " << t8 << " " << t9 << " " << t10 << " " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 << " " << t1+ t3 + t5 +  t7 + t8 + t9 + t10 << std::endl;
 	latency_file.close();
 }
 
@@ -941,7 +1178,7 @@ void benchmark(NetParam &net_param) {
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
 	int NUM_THREADS = 1;
 	
-	BUF_SIZE = 2UL*1024*1024*1024;
+	BUF_SIZE = 1UL*1024*1024*1024;
 	std::cout << "BUF_SIZE: " << BUF_SIZE << std::endl;
 	size_t ops = size_t(1) * ITERATIONS ;
 	LOG_I("OPS : [%ld]", ops);
