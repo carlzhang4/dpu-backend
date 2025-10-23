@@ -128,6 +128,13 @@ target_compile_definitions(GNN_RDMA_pim PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSIO
 set_target_properties(GNN_RDMA_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_RDMA_pim generate_output_files_GNN)
 
+add_executable(GNN_RDMA_cpu ./host/GNN_RDMA_cpu.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_RDMA_cpu PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_RDMA_cpu dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_RDMA_cpu PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_RDMA_cpu PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_RDMA_cpu generate_output_files_GNN)
+
 add_executable(GNN_RDMA_pim_AR ./host/GNN_RDMA_pim_AR.cpp ${ALL_DPU_SOURCES} ${SRCS})
 target_include_directories(GNN_RDMA_pim_AR PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(GNN_RDMA_pim_AR dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
@@ -150,6 +157,12 @@ target_compile_definitions(GNN_all_reduce_test_2d PRIVATE DPU_TOOLS_VERSION=${UP
 set_target_properties(GNN_all_reduce_test_2d PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(GNN_all_reduce_test_2d generate_output_files_GNN)
 
+add_executable(GNN_pimnic_host_varidpu ./host/GNN_pimnic_host_varidpu.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(GNN_pimnic_host_varidpu PUBLIC ${INCLUDE_DIRECTORIES} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(GNN_pimnic_host_varidpu dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} ${LIBRARIES} dpuverbose)
+target_compile_definitions(GNN_pimnic_host_varidpu PRIVATE DPU_TOOLS_VERSION=${UPMEM_VERSION} NR_TASKLETS=16 INT32)
+set_target_properties(GNN_pimnic_host_varidpu PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(GNN_pimnic_host_varidpu generate_output_files_GNN)
 
 # # Dist Host (INT8)
 # add_executable(GNN_pim_int8 ./host/GNN_pim.cpp ${ALL_DPU_SOURCES} ${SRCS})

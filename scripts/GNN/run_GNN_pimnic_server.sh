@@ -1,8 +1,6 @@
 #!/bin/bash
 for DATA_SET in pubmed citeseer 
 do
-    echo ================================================== >> GNN_RDMA_pim_latency_PID.txt
-    echo  $DATA_SET >> GNN_RDMA_pim_latency_PID.txt
     for DPU_NUM in 64 256 1024
     do
         
@@ -12,10 +10,9 @@ do
             for i in {1..3}
             do
                 echo "Run $i"
-                ./benchmarks/GNN/GNN_RDMA_pim_AR -nodeId=1 -serverIp=127.0.0.1 -coreOffset=1  -dpu_num $DPU_NUM  -dataset $DATA_SET -feature_dim $feature_dim 
+                ../build/benchmarks/GNN/GNN_pimnic_host_varidpu -dpu_num 64
             done
         done
     done
 done
-
 
