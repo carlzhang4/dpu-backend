@@ -51,6 +51,10 @@ extern "C" {
 #define DPU_BINARY_USER "../build/benchmarks/kvstore/kvstore_pim_ycsb"
 #endif
 
+#ifndef DPU_BINARY_USER_PARALLEL
+#define DPU_BINARY_USER_PARALLEL "../build/benchmarks/kvstore/kvstore_pim_ycsb_batching"
+#endif
+
 
 #define MAX_FIELDS   10
 #define FIELD_CAP    28   // 每个 field 的最大字节数
@@ -392,6 +396,417 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 
 }
 
+void thread_KVStore_server_batching_pim(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+	
+	struct dpu_set_t set;
+	struct dpu_set_t dpu;
+	uint32_t each_dpu;
+
+
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
+	std::cout << "DPU binary loaded successfully." << std::endl;
+
+	uint32_t dpu_id_array[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,&(dpu_id_array[each_dpu])));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "dpu_id",0, sizeof(uint32_t), DPU_XFER_DEFAULT));
+	
+
+	memset(buf, 0, BUF_SIZE);
+	size_t missed=0;
+	hash_function hash_funcs[16] = {hash_func1, hash_func2, hash_func3, hash_func4,
+									hash_func5, hash_func6, hash_func7, hash_func8,
+									hash_func9, hash_func10, hash_func11, hash_func12,
+									hash_func13, hash_func14, hash_func15, hash_func16
+								};
+
+	std::cout << "Thread " << thread_index << " starting KVStore server with max entries: " << MAX_HASH_ENTRY_NUM << std::endl;
+	CuckooHash store(MAX_HASH_ENTRY_NUM, hash_funcs, 16);
+
+	 char start_buf[10];
+	int bytes_send = send(net_param.sockfd[1], start_buf, sizeof(start_buf), 0);
+	
+
+	std::cout << "Server thread started." << std::endl;
+	for(int i=0;i<10000;i++){
+		std::cout << "Receiving and updating KVStore, iteration " << i << std::endl;
+		if(store.receive_and_update(net_param.sockfd[1]) == -1) {
+			std::cerr << "Failed to receive and update KVStore" << std::endl;
+			exit(1);
+		}
+	}
+	std::cout << "KVStore initialized." << std::endl;
+	store.print_entry_sizes();
+
+	size_t value_storage_sizes = MAX_HASH_ENTRY_NUM * store.get_value_slot_size();
+	std::vector<char*> value_storages = store.value_storage;
+	std::vector<KVhashtable*> kv_hash_tables = store.KVHashTable_vec;
+	size_t kv_hash_table_sizes = MAX_HASH_ENTRY_NUM * sizeof(KVhashtable);
+
+	std::cout << "Preparing to send hashtable and value storage metadata to client." << std::endl;
+
+	std::cout << "Value storage size: " << value_storage_sizes << std::endl;
+	std::cout << "KVhashtable size: " << kv_hash_table_sizes << std::endl;
+
+
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,value_storages[each_dpu]));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "value_storage",0, value_storage_sizes, DPU_XFER_DEFAULT));
+	
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,kv_hash_tables[each_dpu]));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "hashtable",0, kv_hash_table_sizes, DPU_XFER_DEFAULT));
+
+	size_t offset = 0;
+	struct ibv_wc *wc_send = NULL;
+	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	uint64_t magic_number =1;
+	uint64_t d1=0;
+	uint64_t t1,t2;
+	while (true){
+		// Read request header: [num_keys]
+		volatile uint8_t* base = reinterpret_cast<volatile uint8_t*>(buf) + offset;
+		if (offset + 8 > BUF_SIZE) { offset = 0; continue; }
+
+		uint64_t num_keys = *reinterpret_cast<volatile const uint64_t*>(base);
+		if (num_keys == 0) {
+			continue;
+		}
+
+		// Walk keys to compute request size and locate magic
+		size_t cursor = 8; // after num_keys
+		bool malformed = false;
+		std::vector<std::pair<size_t,size_t>> key_spans; // (offset,len) relative to base
+		key_spans.reserve(static_cast<size_t>(num_keys));
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			if (offset + cursor + 8 > BUF_SIZE) { malformed = true; break; }
+			uint64_t klen = *reinterpret_cast<volatile const uint64_t*>(base + cursor);
+			cursor += 8;
+			if (offset + cursor + klen > BUF_SIZE) { malformed = true; break; }
+			key_spans.emplace_back(cursor, static_cast<size_t>(klen));
+			cursor += static_cast<size_t>(klen);
+		}
+		if (malformed) { offset = 0; continue; }
+
+		if (offset + cursor + 8 > BUF_SIZE) { offset = 0; continue; }
+		volatile const uint64_t* magic_ptr = reinterpret_cast<volatile const uint64_t*>(base + cursor);
+		uint64_t magic = *magic_ptr;
+		const size_t req_size = cursor + 8; // request bytes
+		if (magic != magic_number) {
+			continue;
+		}
+
+		// Build response payload: [num_keys] then per-key packed kvpairs
+		std::vector<uint8_t> payload;
+		payload.reserve(8 + static_cast<size_t>(num_keys) * 128);
+		payload.insert(payload.end(), reinterpret_cast<uint8_t*>(&num_keys), reinterpret_cast<uint8_t*>(&num_keys) + 8);
+
+		// For each key: run PIM pipeline like single-key path
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			const size_t koff = key_spans[i].first;
+			const size_t klen = key_spans[i].second;
+			// Materialize key
+			std::string key;
+			key.resize(klen);
+			char* dst = &key[0];
+			volatile const uint8_t* src = base + koff;
+			for (size_t n = 0; n < klen; ++n) dst[n] = static_cast<char>(src[n]);
+
+			// Prepare 40-byte request block for DPU: [key_len(8)] + first 32B of key
+			uint8_t req40[40];
+			std::memset(req40, 0, sizeof(req40));
+			uint64_t klen64 = static_cast<uint64_t>(klen);
+			std::memcpy(req40, &klen64, 8);
+			const size_t copy_len = std::min<size_t>(32, klen);
+			if (copy_len) std::memcpy(req40 + 8, key.data(), copy_len);
+
+			// Send to all DPUs and launch
+			DPU_ASSERT(dpu_broadcast_to(set, "request", 0, (const void *)req40, 40, DPU_XFER_DEFAULT));
+			t1 = get_tscp();
+			DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+			t2 = get_tscp();
+			d1 += (t2 - t1);
+
+			// Read back per-DPU value slots and merge
+			char value_pim[16*VALUE_SLOT_SIZE];
+			std::memset(value_pim, 0, sizeof(value_pim));
+			DPU_FOREACH(set, dpu, each_dpu){
+				DPU_ASSERT(dpu_prepare_xfer(dpu,&(value_pim[each_dpu*VALUE_SLOT_SIZE])));
+			}
+			DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "value",0, VALUE_SLOT_SIZE , DPU_XFER_DEFAULT));
+
+			char result_value_pim[VALUE_SLOT_SIZE];
+			std::memset(result_value_pim, 0, VALUE_SLOT_SIZE);
+			for (int b = 0; b < VALUE_SLOT_SIZE; ++b) {
+				for (int d = 0; d < 16; ++d) {
+					result_value_pim[b] |= value_pim[b + d * VALUE_SLOT_SIZE];
+				}
+			}
+
+			std::vector<KVPair> pim_result;
+			parse_values_fixed(std::vector<char>(result_value_pim, result_value_pim + VALUE_SLOT_SIZE), pim_result);
+
+			// Pack and append to payload
+			std::vector<uint8_t> packed;
+			pack_kvpairs(pim_result, packed); // starts with [num_pairs]
+			payload.insert(payload.end(), packed.begin(), packed.end());
+		}
+
+		// Place response after request (64B aligned)
+		const size_t resp_offset = offset + align64(req_size);
+		const size_t resp_total = 8 + payload.size() + 8;
+		if (resp_offset + resp_total > BUF_SIZE) {
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+			offset = 0;
+			continue;
+		}
+
+		uint8_t* resp_base = reinterpret_cast<uint8_t*>(buf) + resp_offset;
+		uint64_t resp_size = static_cast<uint64_t>(payload.size());
+		std::memcpy(resp_base, &resp_size, 8);
+		if (!payload.empty()) {
+			std::memcpy(resp_base + 8, payload.data(), payload.size());
+		}
+		std::memcpy(resp_base + 8 + payload.size(), &magic_number, 8);
+
+		post_send(*handler, resp_offset, static_cast<int>(resp_total));
+		while (!poll_send_cq(*handler, wc_send)) {}
+
+		// Clear request magic, advance and bump magic
+		{
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+		}
+		offset = resp_offset + align64(resp_total);
+		if (offset >= BUF_SIZE) offset = 0;
+		magic_number++;
+	}
+		
+		
+	
+	//std::cout << "All key-value pairs verified successfully." << std::endl;
+
+}
+
+void thread_KVStore_server_batching_pim_parallel(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+	
+	struct dpu_set_t set;
+	struct dpu_set_t dpu;
+	uint32_t each_dpu;
+
+
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	DPU_ASSERT(dpu_load(set, DPU_BINARY_USER_PARALLEL, NULL));
+	std::cout << "DPU binary loaded successfully." << std::endl;
+
+	uint32_t dpu_id_array[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,&(dpu_id_array[each_dpu])));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "dpu_id",0, sizeof(uint32_t), DPU_XFER_DEFAULT));
+	
+	int batch_size_host = 100;
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,&(batch_size_host)));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "batch_size_host",0, sizeof(int), DPU_XFER_DEFAULT));
+	
+
+	memset(buf, 0, BUF_SIZE);
+	size_t missed=0;
+	hash_function hash_funcs[16] = {hash_func1, hash_func2, hash_func3, hash_func4,
+									hash_func5, hash_func6, hash_func7, hash_func8,
+									hash_func9, hash_func10, hash_func11, hash_func12,
+									hash_func13, hash_func14, hash_func15, hash_func16
+								};
+
+	std::cout << "Thread " << thread_index << " starting KVStore server with max entries: " << MAX_HASH_ENTRY_NUM << std::endl;
+	CuckooHash store(MAX_HASH_ENTRY_NUM, hash_funcs, 16);
+
+	 char start_buf[10];
+	int bytes_send = send(net_param.sockfd[1], start_buf, sizeof(start_buf), 0);
+	
+
+	std::cout << "Server thread started." << std::endl;
+	for(int i=0;i<10000;i++){
+		std::cout << "Receiving and updating KVStore, iteration " << i << std::endl;
+		if(store.receive_and_update(net_param.sockfd[1]) == -1) {
+			std::cerr << "Failed to receive and update KVStore" << std::endl;
+			exit(1);
+		}
+	}
+	std::cout << "KVStore initialized." << std::endl;
+	store.print_entry_sizes();
+
+	size_t value_storage_sizes = MAX_HASH_ENTRY_NUM * store.get_value_slot_size();
+	std::vector<char*> value_storages = store.value_storage;
+	std::vector<KVhashtable*> kv_hash_tables = store.KVHashTable_vec;
+	size_t kv_hash_table_sizes = MAX_HASH_ENTRY_NUM * sizeof(KVhashtable);
+
+	std::cout << "Preparing to send hashtable and value storage metadata to client." << std::endl;
+
+	std::cout << "Value storage size: " << value_storage_sizes << std::endl;
+	std::cout << "KVhashtable size: " << kv_hash_table_sizes << std::endl;
+
+
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,value_storages[each_dpu]));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "value_storage",0, value_storage_sizes, DPU_XFER_DEFAULT));
+	
+	DPU_FOREACH(set, dpu, each_dpu){
+		DPU_ASSERT(dpu_prepare_xfer(dpu,kv_hash_tables[each_dpu]));
+	}
+	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "hashtable",0, kv_hash_table_sizes, DPU_XFER_DEFAULT));
+
+	size_t offset = 0;
+	struct ibv_wc *wc_send = NULL;
+	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	uint64_t magic_number =1;
+	uint64_t d1=0;
+	uint64_t t1,t2;
+	while (true){
+		// Read request header: [num_keys]
+		volatile uint8_t* base = reinterpret_cast<volatile uint8_t*>(buf) + offset;
+		if (offset + 8 > BUF_SIZE) { offset = 0; continue; }
+
+		uint64_t num_keys = *reinterpret_cast<volatile const uint64_t*>(base);
+		if (num_keys == 0) {
+			continue;
+		}
+
+		// Walk keys to compute request size and locate magic
+		size_t cursor = 8; // after num_keys
+		bool malformed = false;
+		std::vector<std::pair<size_t,size_t>> key_spans; // (offset,len) relative to base
+		key_spans.reserve(static_cast<size_t>(num_keys));
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			if (offset + cursor + 8 > BUF_SIZE) { malformed = true; break; }
+			uint64_t klen = *reinterpret_cast<volatile const uint64_t*>(base + cursor);
+			cursor += 8;
+			if (offset + cursor + klen > BUF_SIZE) { malformed = true; break; }
+			key_spans.emplace_back(cursor, static_cast<size_t>(klen));
+			cursor += static_cast<size_t>(klen);
+		}
+		if (malformed) { offset = 0; continue; }
+
+		if (offset + cursor + 8 > BUF_SIZE) { offset = 0; continue; }
+		volatile const uint64_t* magic_ptr = reinterpret_cast<volatile const uint64_t*>(base + cursor);
+		uint64_t magic = *magic_ptr;
+		const size_t req_size = cursor + 8; // request bytes
+		if (magic != magic_number) {
+			continue;
+		}
+
+		// Build response payload: [num_keys] then per-key packed kvpairs
+		std::vector<uint8_t> payload;
+		payload.reserve(8 + static_cast<size_t>(num_keys) * 128);
+		payload.insert(payload.end(), reinterpret_cast<uint8_t*>(&num_keys), reinterpret_cast<uint8_t*>(&num_keys) + 8);
+
+		// Prepare batch request buffer for all keys (40 bytes per key)
+		std::vector<uint8_t> batch_requests(static_cast<size_t>(num_keys) * 40, 0);
+		
+		// Prepare all requests in batch
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			const size_t koff = key_spans[i].first;
+			const size_t klen = key_spans[i].second;
+			// Materialize key
+			std::string key;
+			key.resize(klen);
+			char* dst = &key[0];
+			volatile const uint8_t* src = base + koff;
+			for (size_t n = 0; n < klen; ++n) dst[n] = static_cast<char>(src[n]);
+
+			// Prepare 40-byte request block for DPU: [key_len(8)] + first 32B of key
+			uint8_t* req40 = batch_requests.data() + i * 40;
+			std::memset(req40, 0, 40);
+			uint64_t klen64 = static_cast<uint64_t>(klen);
+			std::memcpy(req40, &klen64, 8);
+			const size_t copy_len = std::min<size_t>(32, klen);
+			if (copy_len) std::memcpy(req40 + 8, key.data(), copy_len);
+		}
+
+		// Send entire batch to all DPUs at once
+		DPU_ASSERT(dpu_broadcast_to(set, "request", 0, (const void *)batch_requests.data(), batch_requests.size(), DPU_XFER_DEFAULT));
+		
+		// Launch DPU once to process all requests in the batch
+		t1 = get_tscp();
+		DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
+		t2 = get_tscp();
+		d1 += (t2 - t1);
+
+		// Read back per-DPU value slots and merge for all keys
+		size_t total_value_size = 16 * VALUE_SLOT_SIZE * static_cast<size_t>(num_keys);
+		std::vector<char> value_pim_batch(total_value_size, 0);
+		
+		DPU_FOREACH(set, dpu, each_dpu){
+			DPU_ASSERT(dpu_prepare_xfer(dpu, &(value_pim_batch[each_dpu * VALUE_SLOT_SIZE * num_keys])));
+		}
+		DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, "value", 0, VALUE_SLOT_SIZE * num_keys, DPU_XFER_DEFAULT));
+
+		// Process results for each key
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			char result_value_pim[VALUE_SLOT_SIZE];
+			std::memset(result_value_pim, 0, VALUE_SLOT_SIZE);
+			
+			// Merge results from all 16 DPUs for this key
+			for (int b = 0; b < VALUE_SLOT_SIZE; ++b) {
+				for (int d = 0; d < 16; ++d) {
+					result_value_pim[b] |= value_pim_batch[d * VALUE_SLOT_SIZE * num_keys + i * VALUE_SLOT_SIZE + b];
+				}
+			}
+
+			std::vector<KVPair> pim_result;
+			parse_values_fixed(std::vector<char>(result_value_pim, result_value_pim + VALUE_SLOT_SIZE), pim_result);
+
+			// Pack and append to payload
+			std::vector<uint8_t> packed;
+			pack_kvpairs(pim_result, packed); // starts with [num_pairs]
+			payload.insert(payload.end(), packed.begin(), packed.end());
+		}
+
+		// Place response after request (64B aligned)
+		const size_t resp_offset = offset + align64(req_size);
+		const size_t resp_total = 8 + payload.size() + 8;
+		if (resp_offset + resp_total > BUF_SIZE) {
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+			offset = 0;
+			continue;
+		}
+
+		uint8_t* resp_base = reinterpret_cast<uint8_t*>(buf) + resp_offset;
+		uint64_t resp_size = static_cast<uint64_t>(payload.size());
+		std::memcpy(resp_base, &resp_size, 8);
+		if (!payload.empty()) {
+			std::memcpy(resp_base + 8, payload.data(), payload.size());
+		}
+		std::memcpy(resp_base + 8 + payload.size(), &magic_number, 8);
+
+		post_send(*handler, resp_offset, static_cast<int>(resp_total));
+		while (!poll_send_cq(*handler, wc_send)) {}
+
+		// Clear request magic, advance and bump magic
+		{
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+		}
+		offset = resp_offset + align64(resp_total);
+		if (offset >= BUF_SIZE) offset = 0;
+		magic_number++;
+	}
+		
+		
+	
+	//std::cout << "All key-value pairs verified successfully." << std::endl;
+
+}
+
 void benchmark(NetParam &net_param) {
 	int num_cpus = thread::hardware_concurrency();
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
@@ -434,7 +849,7 @@ void benchmark(NetParam &net_param) {
 	for (int i = 0;i < NUM_THREADS;i++) {
 		int now_index = get_cpu_index_with_numa(i + CORE_OFFSET, net_param.numa_node);
 		
-			threads[i] = thread(thread_KVStore_server, now_index, qp_handlers[i], bufs[i], ops, net_param);
+			threads[i] = thread(thread_KVStore_server_batching_pim_parallel, now_index, qp_handlers[i], bufs[i], ops, net_param);
 		
 		set_cpu_with_numa(threads[i], i + CORE_OFFSET, net_param.numa_node);
 	}

@@ -120,6 +120,96 @@ uint64_t* magic_offset_ptr1 = nullptr;
 uint64_t* magic_offset_ptr2 = nullptr;
 int mid_row;
 
+// 默认线程数，用于保持旧接口兼容性
+
+#define GNN_DEFAULT_NUM_THREADS 24
+// ...existing code...
+// static inline void bind_self_to_core(int logical_core, int numa_node) {
+//     cpu_set_t mask; CPU_ZERO(&mask);
+//     int cpu = get_cpu_index_with_numa(logical_core, numa_node);
+//     CPU_SET(cpu, &mask);
+//     pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask);
+// }
+
+static inline void bind_self_to_core(int logical_core, int numa_node) {
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    int nprocs = (int)sysconf(_SC_NPROCESSORS_CONF);
+    int cpu = (nprocs > 0) ? (logical_core % nprocs) : logical_core;
+    CPU_SET(cpu, &mask);
+    if (pthread_setaffinity_np(pthread_self(), sizeof(mask), &mask) != 0) {
+        perror("pthread_setaffinity_np");
+    }
+}
+
+
+// --- GNN_host_mid_half 的 std::thread 版本 ---
+static void GNN_host_mid_half_threads(struct COOMatrix *A, struct Matrix *feature, T *Mid, int node_id, int num_threads) {
+    const unsigned int nrows = A->nrows;
+    const unsigned int ncols = feature->ncols;
+
+    // 1. 并行清零 Mid 矩阵
+    std::vector<std::thread> zero_threads;
+    int rows_per_thread_zero = (nrows + num_threads - 1) / num_threads;
+    for (int t = 0; t < num_threads; ++t) {
+        zero_threads.emplace_back([=]() {
+            unsigned int start = t * rows_per_thread_zero;
+            unsigned int end = std::min(start + rows_per_thread_zero, nrows);
+            for (unsigned int row = start; row < end; ++row) {
+                for (unsigned int col = 0; col < ncols; ++col) {
+                    Mid[row * ncols + col] = 0;
+                }
+            }
+        });
+    }
+    for (auto& th : zero_threads) {
+        th.join();
+    }
+
+    // 2. 确定当前节点处理的非零元素范围
+    const int mid_row = A->nrows / 2;
+    int split_idx = 0;
+    while (split_idx < (int)A->nnz && A->nnzs[split_idx].rowind < mid_row) ++split_idx;
+
+    const int node_start_idx = (node_id == 0) ? 0 : split_idx;
+    const int node_end_idx = (node_id == 0) ? split_idx : (int)A->nnz;
+    const int total_nnz_for_node = node_end_idx - node_start_idx;
+
+    // 3. 并行计算 SpMM
+    // 警告: 如果多个非零元素更新同一行，这里存在数据竞争。这与原始 OpenMP 版本行为一致。
+    // 要修复此问题，需要使用原子操作或更复杂的归约策略。
+    std::vector<std::thread> compute_threads;
+    int nnz_per_thread = (total_nnz_for_node + num_threads - 1) / num_threads;
+    for (int t = 0; t < num_threads; ++t) {
+        compute_threads.emplace_back([=]() {
+            bind_self_to_core(CORE_OFFSET + 2*t, NUMA_NODE);
+            int start_n = node_start_idx + t * nnz_per_thread;
+            int end_n = std::min(start_n + nnz_per_thread, node_end_idx);
+
+            for (int n = start_n; n < end_n; ++n) {
+                const int r = A->nnzs[n].rowind;
+                const int c0 = A->nnzs[n].colind;
+                const T a = A->nnzs[n].val;
+                for (unsigned int col = 0; col < ncols; ++col) {
+                    Mid[r * ncols + col] += feature->val[c0 * ncols + col] * a;
+                }
+            }
+        });
+    }
+    for (auto& th : compute_threads) {
+        th.join();
+    }
+}
+
+// 保持旧接口的兼容性封装
+static void GNN_host_mid_half(struct COOMatrix *A, struct Matrix *feature, T *Mid, int node_id) {
+    GNN_host_mid_half_threads(A, feature, Mid, node_id, GNN_DEFAULT_NUM_THREADS);
+}
+
+
+
+
+
 
 static void GNN_host_mid(struct COOMatrix *A, struct Matrix *feature, T *Mid){
     //reset Mid
@@ -137,30 +227,30 @@ static void GNN_host_mid(struct COOMatrix *A, struct Matrix *feature, T *Mid){
 
 
 
-//* GNN_host_mid_half calculate half of COOMatrix
-static void GNN_host_mid_half(struct COOMatrix *A, struct Matrix *feature, T *Mid, int node_id) {
-    // zero Mid
-    for (unsigned int row = 0; row < A->nrows; row++)
-        for (unsigned int col = 0; col < feature->ncols; col++)
-            Mid[row * feature->ncols + col] = 0;
+// //* GNN_host_mid_half calculate half of COOMatrix
+// static void GNN_host_mid_half(struct COOMatrix *A, struct Matrix *feature, T *Mid, int node_id) {
+//     // zero Mid
+//     for (unsigned int row = 0; row < A->nrows; row++)
+//         for (unsigned int col = 0; col < feature->ncols; col++)
+//             Mid[row * feature->ncols + col] = 0;
 
-    const int mid_row = A->nrows / 2;
-    int split_idx = 0;
-    while (split_idx < (int)A->nnz && A->nnzs[split_idx].rowind < mid_row) ++split_idx;
+//     const int mid_row = A->nrows / 2;
+//     int split_idx = 0;
+//     while (split_idx < (int)A->nnz && A->nnzs[split_idx].rowind < mid_row) ++split_idx;
 
-    const int start_idx = (node_id == 0) ? 0         : split_idx;
-    const int end_idx   = (node_id == 0) ? split_idx : (int)A->nnz;
+//     const int start_idx = (node_id == 0) ? 0         : split_idx;
+//     const int end_idx   = (node_id == 0) ? split_idx : (int)A->nnz;
 
-    #pragma omp parallel for num_threads(12)
-    for (int n = start_idx; n < end_idx; n++) {
-        const int r = A->nnzs[n].rowind;
-        const int c0 = A->nnzs[n].colind;
-        const T a = A->nnzs[n].val;
-        for (unsigned int col = 0; col < feature->ncols; col++) {
-            Mid[r * feature->ncols + col] += feature->val[c0 * feature->ncols + col] * a;
-        }
-    }
-}
+//     #pragma omp parallel for num_threads(12)
+//     for (int n = start_idx; n < end_idx; n++) {
+//         const int r = A->nnzs[n].rowind;
+//         const int c0 = A->nnzs[n].colind;
+//         const T a = A->nnzs[n].val;
+//         for (unsigned int col = 0; col < feature->ncols; col++) {
+//             Mid[r * feature->ncols + col] += feature->val[c0 * feature->ncols + col] * a;
+//         }
+//     }
+// }
 
 static void GNN_host_mid_2(struct COOMatrix *A, struct Matrix *feature, T *Mid){
     //reset Mid
@@ -191,15 +281,44 @@ static void GNN_host_rest(struct Matrix *y, T *Mid, struct Matrix *weight){
     }
 }
 
-static void GNN_host_rest_half(struct Matrix *y, T *Mid, struct Matrix *weight,int node_id){
-    for (unsigned int row = 0; row < y->nrows; row++)
-        for (unsigned int col = 0; col < y->ncols; col++)
-            y->val[row * y->ncols + col] = 0;
+
+static void GNN_host_rest_half_thread(struct Matrix *y, T *Mid, struct Matrix *weight,int node_id,int thread_id){
+    bind_self_to_core(CORE_OFFSET + 2*thread_id, NUMA_NODE);
     int start_row = (node_id == 0) ? 0 : y->nrows / 2;
     int end_row = (node_id == 0) ? y->nrows / 2 : y->nrows;
-    #pragma omp parallel for num_threads(12)
+
+    int total_rows = end_row - start_row;
+    int rows_per_thread = (total_rows + GNN_DEFAULT_NUM_THREADS - 1) / GNN_DEFAULT_NUM_THREADS;
+    int thread_start_row = start_row + thread_id * rows_per_thread;
+    int thread_end_row = std::min(thread_start_row + rows_per_thread, end_row);
+
+    for (unsigned int row = thread_start_row; row < thread_end_row; row++){
+        for (unsigned int col = 0; col < y->ncols; col++){
+            y->val[row * y->ncols + col] = 0;
+            for (int i = 0; i < (int)y->ncols; i++){
+                y->val[row * (y->ncols) + col] += Mid[row * (y->ncols) + i] * weight->val[col * (y->ncols) + i];
+            }
+        }
+    }
+}
+
+static void GNN_host_rest_half2(struct Matrix *y, T *Mid, struct Matrix *weight,int node_id){
+    std::vector<std::thread> threads;
+    for (int t = 0; t < GNN_DEFAULT_NUM_THREADS; ++t) {
+        threads.emplace_back(GNN_host_rest_half_thread, y, Mid, weight, node_id, t);
+    }
+    for (auto& th : threads) {
+        th.join();
+    }
+}
+
+
+static void GNN_host_rest_half(struct Matrix *y, T *Mid, struct Matrix *weight,int node_id){
+    int start_row = (node_id == 0) ? 0 : y->nrows / 2;
+    int end_row = (node_id == 0) ? y->nrows / 2 : y->nrows;
     for (unsigned int row = start_row; row < end_row; row++){
         for (unsigned int col = 0; col < y->ncols; col++){
+            y->val[row * y->ncols + col] = 0;
             for (int i = 0; i < (int)y->ncols; i++){
                 y->val[row * (y->ncols) + col] += Mid[row * (y->ncols) + i] * weight->val[col * (y->ncols) + i];
             }
@@ -270,7 +389,7 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
         GNN_host_mid_half(B, feature, y_host2, net_param.nodeId);
         stopTimer(&timer, 1);
         startTimer(&timer, 2);
-        GNN_host_rest_half(y_final2, y_host2, weight_2, net_param.nodeId);
+        GNN_host_rest_half2(y_final2, y_host2, weight_2, net_param.nodeId);
         stopTimer(&timer, 2);
 
         startTimer(&timer, 3);
@@ -279,19 +398,26 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
             //* server
             post_write(*handler, 0, A->nrows * feature->ncols * sizeof(T) / 2);
             while(!poll_send_cq(*handler, wc_send));
-            post_read(*handler, A->nrows * feature->ncols * sizeof(T) / 2, A->nrows * feature->ncols * sizeof(T) / 2);
-            while(!poll_send_cq(*handler, wc_send));
+            // post_read(*handler, A->nrows * feature->ncols * sizeof(T) / 2, A->nrows * feature->ncols * sizeof(T) / 2);
+            // while(!poll_send_cq(*handler, wc_send));
 
+        }else{
+            //sleep(1);
+            //* client
+            post_write(*handler, A->nrows * feature->ncols * sizeof(T) / 2, A->nrows * feature->ncols * sizeof(T) / 2);
+            while(!poll_send_cq(*handler, wc_send));
         }
         stopTimer(&timer, 3);
 
         if (net_param.nodeId == 0) {
             char all_gather_end_buf[10];
             send(net_param.sockfd[1], all_gather_end_buf, 10, 0);
+            recv(net_param.sockfd[1], all_gather_end_buf, 10, 0);
 
         }else{
             char all_gather_end_buf[10];
             recv(net_param.sockfd[0], all_gather_end_buf, 10, 0);
+            send(net_param.sockfd[0], all_gather_end_buf, 10, 0);
         }
     
 		int errors_cnt = 0;

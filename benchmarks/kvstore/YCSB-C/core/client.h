@@ -22,12 +22,14 @@ class Client {
   
   virtual bool DoInsert();
   virtual bool DoTransaction();
+  virtual int TransactionRead_Batching();
   
   virtual ~Client() { }
   
  protected:
   
   virtual int TransactionRead();
+  
   virtual int TransactionReadModifyWrite();
   virtual int TransactionScan();
   virtual int TransactionUpdate();
@@ -80,6 +82,20 @@ inline int Client::TransactionRead() {
   } else {
     return db_.Read(table, key, NULL, result);
   }
+}
+
+inline int Client::TransactionRead_Batching() {
+  std::vector<std::string> keys;
+  int batch_size = 100;
+  const std::string &table = workload_.NextTable();
+  for (int i = 0; i < batch_size; ++i) {
+      const std::string &key = workload_.NextTransactionKey();
+      keys.push_back(key);
+  }
+
+  std::vector<std::vector<DB::KVPair>> result;
+  return db_.Read_Batching(table, keys, NULL, result);
+ 
 }
 
 inline int Client::TransactionReadModifyWrite() {

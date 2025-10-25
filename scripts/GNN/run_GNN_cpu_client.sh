@@ -1,8 +1,6 @@
 #!/bin/bash
 for DATA_SET in pubmed citeseer 
 do
-    echo ================================================== >> GNN_RDMA_cpu_latency.txt
-    echo  $DATA_SET >> GNN_RDMA_cpu_latency.txt  
     for feature_dim in 64 128 256 
     do
         echo "Run with feature_dim=$feature_dim"

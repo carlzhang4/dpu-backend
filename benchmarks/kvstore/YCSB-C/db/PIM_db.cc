@@ -135,11 +135,136 @@ response format:
    */
 
 
-   static inline void append_u64_be(std::vector<char>& out, uint64_t v) {
+static inline void append_u64_be(std::vector<char>& out, uint64_t v) {
     uint64_t be = htobe64(v);
     const char* p = reinterpret_cast<const char*>(&be);
     out.insert(out.end(), p, p + sizeof(be));
 }
+
+
+  int PIMDB::Read_Batching(const std::string &table,
+                              const std::vector<std::string> &keys,
+                              const std::vector<std::string> *fields,
+                              std::vector<std::vector<KVPair>> &results){
+    // Batch request/response (single-shot):
+    // Request layout (contiguous in registered buf):
+    //   [ num_keys: u64 ]
+    //   repeat num_keys times: [ key_len: u64 ][ key bytes ]
+    //   [ magic: u64 ]
+    // Response layout:
+    //   [ resp_size: u64 ]  -- size of payload bytes that follow (not including this header or trailing magic)
+    //   [ payload bytes ]   -- payload format below
+    //   [ magic: u64 ]
+    // Payload format:
+    //   [ num_keys: u64 ]
+    //     for each key i in [0..num_keys):
+    //       [ num_pairs: u64 ]
+    //         repeat num_pairs times:
+    //           [ field_len: u64 ][ field bytes ][ value_len: u64 ][ value bytes ]
+
+    auto align64 = [](size_t x) { return (x + 63) & ~size_t(63); };
+
+    // Compute total request size
+    const uint64_t num_keys = static_cast<uint64_t>(keys.size());
+    size_t req_size = sizeof(uint64_t); // num_keys
+    for (const auto &k : keys) {
+        req_size += sizeof(uint64_t) + k.size();
+    }
+    req_size += sizeof(uint64_t); // magic
+
+    // Wrap if needed
+    if (buffer_offset + req_size > BUF_SIZE) {
+        buffer_offset = 0;
+    }
+
+    const size_t req_offset = buffer_offset;
+    uint8_t *base = reinterpret_cast<uint8_t *>(buf);
+    uint8_t *req_ptr = base + req_offset;
+
+    // Serialize request
+    std::memcpy(req_ptr, &num_keys, sizeof(uint64_t));
+    req_ptr += sizeof(uint64_t);
+    for (const auto &k : keys) {
+        const uint64_t klen = static_cast<uint64_t>(k.size());
+        std::memcpy(req_ptr, &klen, sizeof(uint64_t));
+        req_ptr += sizeof(uint64_t);
+        if (klen) {
+            std::memcpy(req_ptr, k.data(), k.size());
+            req_ptr += k.size();
+        }
+    }
+    std::memcpy(req_ptr, &magic_num, sizeof(uint64_t));
+
+    // Issue a single RDMA write for the whole batch
+    post_send(*qp_handlers, req_offset, static_cast<int>(req_size));
+    while (!poll_send_cq(*qp_handlers, wc_send)) {}
+
+    // Response will start at next 64B boundary
+    const size_t resp_offset = req_offset + align64(req_size);
+    volatile uint8_t *resp_base = reinterpret_cast<volatile uint8_t *>(buf) + resp_offset;
+
+    // Spin until tail magic matches magic_num
+    // First 8 bytes contain total payload size (resp_size)
+    uint64_t resp_size = 0;
+    for (;;) {
+        resp_size = *reinterpret_cast<volatile const uint64_t *>(resp_base);
+        if (resp_size > 0 && resp_offset + 8 + resp_size + 8 <= BUF_SIZE) {
+            volatile const uint64_t *tail = reinterpret_cast<volatile const uint64_t *>(resp_base + 8 + resp_size);
+            if (*tail == magic_num) {
+                break;
+            }
+        }
+        // busy wait
+    }
+
+    // Parse payload into results
+    const uint8_t *p = reinterpret_cast<const uint8_t *>(buf) + resp_offset + 8; // skip resp_size
+    const uint8_t *end = p + resp_size;
+
+    results.clear();
+    results.resize(keys.size());
+
+    auto read_u64 = [&](const uint8_t *&ptr) -> uint64_t {
+        uint64_t v = *reinterpret_cast<const uint64_t *>(ptr);
+        ptr += sizeof(uint64_t);
+        return v;
+    };
+
+    if (p + sizeof(uint64_t) > end) {
+        // malformed response
+        return DB::kErrorNoData;
+    }
+    uint64_t r_num_keys = read_u64(p);
+    if (r_num_keys != num_keys) {
+        // server returned a different count; treat as error
+        return DB::kErrorNoData;
+    }
+
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (p + sizeof(uint64_t) > end) return DB::kErrorNoData;
+        uint64_t num_pairs = read_u64(p);
+        auto &out = results[i];
+        out.clear();
+        out.reserve(static_cast<size_t>(num_pairs));
+        for (uint64_t j = 0; j < num_pairs; ++j) {
+            if (p + sizeof(uint64_t) > end) return DB::kErrorNoData;
+            uint64_t field_len = read_u64(p);
+            if (p + field_len + sizeof(uint64_t) > end) return DB::kErrorNoData;
+            std::string field(reinterpret_cast<const char *>(p), static_cast<size_t>(field_len));
+            p += field_len;
+            uint64_t val_len = read_u64(p);
+            if (p + val_len > end) return DB::kErrorNoData;
+            std::string val(reinterpret_cast<const char *>(p), static_cast<size_t>(val_len));
+            p += val_len;
+            out.emplace_back(std::move(field), std::move(val));
+        }
+    }
+
+    // Advance buffer pointer and bump magic
+    buffer_offset = resp_offset + align64(8 + static_cast<size_t>(resp_size) + 8);
+    magic_num++;
+    return DB::kOK;
+  }
 
 static bool send_all(int fd, const char* data, size_t len) {
     size_t sent = 0;

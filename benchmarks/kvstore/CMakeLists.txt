@@ -314,6 +314,15 @@ add_custom_command(
   COMMENT "Generating ${OUTPUT_kvstore_pim_ycsb}"
 )
 
+set(INPUT_kvstore_pim_ycsb_batching "${CMAKE_CURRENT_SOURCE_DIR}/src/kvstore_pim_ycsb_batching.c")
+set(OUTPUT_kvstore_pim_ycsb_batching "kvstore_pim_ycsb_batching")
+
+add_custom_command(
+  OUTPUT ${OUTPUT_kvstore_pim_ycsb_batching}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DNR_TASKLETS=1 -DBL=10 ${INPUT_kvstore_pim_ycsb_batching} -o ${OUTPUT_kvstore_pim_ycsb_batching}
+  DEPENDS ${INPUT_kvstore_pim_ycsb_batching}
+  COMMENT "Generating ${OUTPUT_kvstore_pim_ycsb_batching}"
+)
 
 add_custom_target(
   generate_output_files_kvstore
@@ -328,6 +337,7 @@ add_custom_target(
   DEPENDS ${OUTPUT_kvstore_get_device_tasklets_parallel}
   DEPENDS ${OUTPUT_kvstore_pimnic}
   DEPENDS ${OUTPUT_kvstore_pim_ycsb}
+  DEPENDS ${OUTPUT_kvstore_pim_ycsb_batching}
   DEPENDS ${ALL_OUTPUTS}
 )
 

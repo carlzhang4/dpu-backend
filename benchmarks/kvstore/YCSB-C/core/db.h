@@ -43,6 +43,14 @@ class DB {
   virtual int Read(const std::string &table, const std::string &key,
                    const std::vector<std::string> *fields,
                    std::vector<KVPair> &result) = 0;
+
+  virtual int Read_Batching(const std::string &table,
+                              const std::vector<std::string> &keys,
+                              const std::vector<std::string> *fields,
+                              std::vector<std::vector<KVPair>> &results){
+    return DB::kOK;
+  }
+
   ///
   /// Performs a range scan for a set of records in the database.
   /// Field/value pairs from the result are stored in a vector.

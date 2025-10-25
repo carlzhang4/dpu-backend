@@ -253,6 +253,151 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 
 }
 
+
+void thread_KVStore_server_batching(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
+	
+	
+	memset(buf, 0, BUF_SIZE);
+	size_t missed=0;
+	hash_function hash_funcs[16] = {hash_func1, hash_func2, hash_func3, hash_func4,
+									hash_func5, hash_func6, hash_func7, hash_func8,
+									hash_func9, hash_func10, hash_func11, hash_func12,
+									hash_func13, hash_func14, hash_func15, hash_func16
+								};
+
+	std::cout << "Thread " << thread_index << " starting KVStore server with max entries: " << MAX_HASH_ENTRY_NUM << std::endl;
+	CuckooHash store(MAX_HASH_ENTRY_NUM, hash_funcs, 16);
+
+	 char start_buf[10];
+	int bytes_send = send(net_param.sockfd[1], start_buf, sizeof(start_buf), 0);
+	
+
+	std::cout << "Server thread started." << std::endl;
+	for(int i=0;i<10000;i++){
+		std::cout << "Receiving and updating KVStore, iteration " << i << std::endl;
+		if(store.receive_and_update(net_param.sockfd[1]) == -1) {
+			std::cerr << "Failed to receive and update KVStore" << std::endl;
+			exit(1);
+		}
+	}
+	std::cout << "KVStore initialized." << std::endl;
+	store.print_entry_sizes();
+	size_t offset = 0;
+	struct ibv_wc *wc_send = NULL;
+	ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
+	uint64_t magic_number =1;
+	
+	while (true){
+		// Base pointer for this offset
+		volatile uint8_t* base = reinterpret_cast<volatile uint8_t*>(buf) + offset;
+		// Ensure we can at least read num_keys
+		if (offset + 8 > BUF_SIZE) { offset = 0; continue; }
+
+		uint64_t num_keys = *reinterpret_cast<volatile const uint64_t*>(base);
+		if (num_keys == 0) {
+			// No request yet
+			continue;
+		}
+
+		// Walk request to compute total size and locate magic
+		size_t cursor = 8; // after num_keys
+		bool malformed = false;
+		std::vector<std::pair<size_t,size_t>> key_spans; // (offset,len) relative to base
+		key_spans.reserve(static_cast<size_t>(num_keys));
+		for (uint64_t i = 0; i < num_keys; ++i) {
+			if (offset + cursor + 8 > BUF_SIZE) { malformed = true; break; }
+			uint64_t klen = *reinterpret_cast<volatile const uint64_t*>(base + cursor);
+			cursor += 8;
+			if (offset + cursor + klen > BUF_SIZE) { malformed = true; break; }
+			key_spans.emplace_back(cursor, static_cast<size_t>(klen));
+			cursor += static_cast<size_t>(klen);
+		}
+		if (malformed) { offset = 0; continue; }
+
+		// After all keys, expect trailing magic
+		if (offset + cursor + 8 > BUF_SIZE) { offset = 0; continue; }
+		volatile const uint64_t* magic_ptr = reinterpret_cast<volatile const uint64_t*>(base + cursor);
+		uint64_t magic = *magic_ptr;
+		const size_t req_size = cursor + 8; // num_keys + each(8+klen) + magic
+		if (magic != magic_number) {
+			// Not ready yet
+			continue;
+		}
+
+		// Parse keys into std::strings
+		std::vector<std::string> req_keys;
+		req_keys.reserve(static_cast<size_t>(num_keys));
+		for (const auto &span : key_spans) {
+			const size_t koff = span.first;
+			const size_t klen = span.second;
+			std::string key;
+			key.resize(klen);
+			char* dst = &key[0];
+			volatile const uint8_t* src = base + koff;
+			for (size_t n = 0; n < klen; ++n) {
+				dst[n] = static_cast<char>(src[n]);
+			}
+			req_keys.emplace_back(std::move(key));
+		}
+
+		// Lookup each key in store and build payload
+		std::vector<uint8_t> payload;
+		payload.reserve(8 + req_keys.size() * 32);
+		// Append num_keys
+		{
+			uint64_t nk = static_cast<uint64_t>(req_keys.size());
+			payload.insert(payload.end(), reinterpret_cast<uint8_t*>(&nk), reinterpret_cast<uint8_t*>(&nk) + 8);
+		}
+		for (const auto &k : req_keys) {
+			std::vector<KVPair> values;
+			if (store.Read(k, values) != 0) {
+				missed++;
+			}
+			std::vector<uint8_t> packed;
+			pack_kvpairs(values, packed); // starts with [num_pairs]
+			payload.insert(payload.end(), packed.begin(), packed.end());
+		}
+
+		// Prepare response placement: directly after request (aligned to 64B)
+		const size_t resp_offset = offset + align64(req_size);
+		const size_t resp_total = 8 + payload.size() + 8; // resp_size + payload + magic
+		if (resp_offset + resp_total > BUF_SIZE) {
+			// Not enough space for response; drop and wrap
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+			offset = 0;
+			continue;
+		}
+
+		uint8_t* resp_base = reinterpret_cast<uint8_t*>(buf) + resp_offset;
+		uint64_t resp_size = static_cast<uint64_t>(payload.size());
+		std::memcpy(resp_base, &resp_size, 8);
+		if (!payload.empty()) {
+			std::memcpy(resp_base + 8, payload.data(), payload.size());
+		}
+		std::memcpy(resp_base + 8 + payload.size(), &magic_number, 8);
+
+		// RDMA write response back to client
+		post_send(*handler, resp_offset, static_cast<int>(resp_total));
+		while (!poll_send_cq(*handler, wc_send)) {}
+
+		// Clear request magic to mark consumed
+		{
+			volatile uint64_t* magic_w = const_cast<volatile uint64_t*>(magic_ptr);
+			*magic_w = 0ULL;
+		}
+
+		// Advance offset to next aligned slot
+		offset = resp_offset + align64(resp_total);
+		if (offset >= BUF_SIZE) offset = 0;
+		magic_number++;
+	}
+		
+	
+	//std::cout << "All key-value pairs verified successfully." << std::endl;
+
+}
+
 void benchmark(NetParam &net_param) {
 	int num_cpus = thread::hardware_concurrency();
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
@@ -295,7 +440,7 @@ void benchmark(NetParam &net_param) {
 	for (int i = 0;i < NUM_THREADS;i++) {
 		int now_index = get_cpu_index_with_numa(i + CORE_OFFSET, net_param.numa_node);
 		
-			threads[i] = thread(thread_KVStore_server, now_index, qp_handlers[i], bufs[i], ops, net_param);
+			threads[i] = thread(thread_KVStore_server_batching, now_index, qp_handlers[i], bufs[i], ops, net_param);
 		
 		set_cpu_with_numa(threads[i], i + CORE_OFFSET, net_param.numa_node);
 	}

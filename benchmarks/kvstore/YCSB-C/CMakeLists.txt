@@ -35,3 +35,10 @@ target_include_directories(ycsbc PUBLIC
 set(LIBRARIES ${LIBRARIES} ibverbs pthread numa gflags  mlx5)
 
 target_link_libraries(ycsbc PRIVATE  ${LIBRARIES})
+
+add_executable(ycsbc_batching ./ycsbc_batching ${SRCS})
+
+target_link_libraries(ycsbc_batching PRIVATE  ${LIBRARIES})
+target_include_directories(ycsbc_batching PUBLIC
+        ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/YCSB-C
+)

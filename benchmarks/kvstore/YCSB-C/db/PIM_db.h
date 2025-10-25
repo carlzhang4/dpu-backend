@@ -61,6 +61,11 @@ class PIMDB : public DB {
            const std::vector<std::string> *fields,
            std::vector<KVPair> &result);
 
+  int Read_Batching(const std::string &table,
+                              const std::vector<std::string> &keys,
+                              const std::vector<std::string> *fields,
+                              std::vector<std::vector<KVPair>> &results);
+
   int Scan(const std::string &table, const std::string &key,
            int len, const std::vector<std::string> *fields,
            std::vector<std::vector<KVPair>> &result) {
