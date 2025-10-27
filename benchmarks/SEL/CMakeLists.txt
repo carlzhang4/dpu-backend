@@ -119,6 +119,19 @@ target_compile_definitions(select_cpu PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
 set_target_properties(select_cpu PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(select_cpu gen_files)
 
+add_executable(select_cpu_bandwidth  ./select_cpu_bandwidth.cpp    ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(select_cpu_bandwidth PUBLIC ${INCLUDE_DIRECTORIES}  )     
+target_link_libraries(select_cpu_bandwidth  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(select_cpu_bandwidth PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(select_cpu_bandwidth PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(select_cpu_bandwidth gen_files)
+
+add_executable(select_pim_throughput  ./select_pim_throughput.cpp    ${ALL_DPU_SOURCES} ${SRCS})  
+target_include_directories(select_pim_throughput PUBLIC ${INCLUDE_DIRECTORIES}  )     
+target_link_libraries(select_pim_throughput  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(select_pim_throughput PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(select_pim_throughput PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(select_pim_throughput gen_files)
 
 #Device target
 set(INPUT_select_device_tasklets_parallel "${CMAKE_CURRENT_SOURCE_DIR}/src/select_device_tasklets_parallel.c")
@@ -143,11 +156,20 @@ foreach(COMBINED_VALUE RANGE 1 16)  # 遍历1到16（包含16）
     list(APPEND ALL_OUTPUTS ${OUTPUT_NAME})
 endforeach()
 
+set(INPUT_SEL_throughput "${CMAKE_CURRENT_SOURCE_DIR}/src/select_device_throughput.c")
+set(OUTPUT_SEL_throughput "select_device_throughput")
 
+add_custom_command(
+  OUTPUT ${OUTPUT_SEL_throughput}
+  COMMAND dpu-upmem-dpurte-clang -Wall -Wextra -pg -I${CMAKE_CURRENT_SOURCE_DIR}/include -Isupport -O2 -DINT8 -DNR_TASKLETS=16 -DBL=10 ${INPUT_SEL_throughput} -o ${OUTPUT_SEL_throughput}
+  DEPENDS ${INPUT_SEL_throughput}
+  COMMENT "Generating ${OUTPUT_SEL_throughput}"
+)
 
 add_custom_target(
   generate_output_files_sel
   ALL
+  DEPENDS  ${OUTPUT_SEL_throughput}
   DEPENDS ${ALL_OUTPUTS}
 )
 

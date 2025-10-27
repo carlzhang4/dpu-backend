@@ -201,7 +201,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
         pack_kvpairs(values, value_bytes);
         const uint64_t value_size = static_cast<uint64_t>(value_bytes.size());
 		std::ofstream dump_file;
-		dump_file.open("kvstore_ycsb_dump_4.txt", std::ios::app);
+		dump_file.open("kvstore_ycsb_dump_512.txt", std::ios::app);
 		dump_file << value_size << std::endl;
 		dump_file.close();
 
@@ -440,7 +440,7 @@ void benchmark(NetParam &net_param) {
 	for (int i = 0;i < NUM_THREADS;i++) {
 		int now_index = get_cpu_index_with_numa(i + CORE_OFFSET, net_param.numa_node);
 		
-			threads[i] = thread(thread_KVStore_server_batching, now_index, qp_handlers[i], bufs[i], ops, net_param);
+			threads[i] = thread(thread_KVStore_server, now_index, qp_handlers[i], bufs[i], ops, net_param);
 		
 		set_cpu_with_numa(threads[i], i + CORE_OFFSET, net_param.numa_node);
 	}

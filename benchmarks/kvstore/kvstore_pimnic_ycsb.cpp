@@ -255,7 +255,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 
 
 	
-	size_t BUF_SIZE = 260*1024*1024;
+	size_t BUF_SIZE = 760*1024*1024;
 	std::cout << "BUF_SIZE: " << BUF_SIZE << std::endl;
 	// if(BUF_SIZE <= 4096){
 	// 	BUF_SIZE = 4096*2;
@@ -269,8 +269,8 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	int dpu_array[MAX_DPU_NUM];
 
 	for (int i = 0;i < 2;i++) {
-		bufs[i] = malloc_2m_numa(BUF_SIZE*2, net_param.numa_node);
-		memset((void*)bufs[i],0,BUF_SIZE*2);
+		bufs[i] = malloc_2m_numa(BUF_SIZE, net_param.numa_node);
+		memset((void*)bufs[i],0,BUF_SIZE);
 		
 		// for (int j = 0;j < BUF_SIZE / static_cast<int>(sizeof(int));j++) {
 		// 	//(reinterpret_cast<int **> (bufs))[i][j] = 1;
@@ -299,7 +299,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	while(!poll_send_cq(*qp_handlers[0], wc_send));
 	//* establish DMA connection with server BF
 	
-	export_client_memory(net_param, bufs[1], 260*1024*1024,1);
+	export_client_memory(net_param, bufs[1], 760*1024*1024,1);
 	std::cout << "BUF1 Address : "<<bufs[1]<<std::endl;
 
 
@@ -315,7 +315,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	
 
 	uint64_t KEY_OFFSET = get_dpu_addr(0,0,0);
-	uint64_t MAGIC_OFFSET = 64;
+	uint64_t MAGIC_OFFSET = 64*512;
 	uint64_t VALUE_MAGIC_OFFSET ;//= VALUE_SIZE_PIMNIC*REQUEST_PER_DPU/64*64+64;
 	std::cout << "KEY_OFFSET: " << KEY_OFFSET << std::endl;
 	std::cout << "MAGIC_OFFSET: " << MAGIC_OFFSET << std::endl;
@@ -336,11 +336,18 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	
 	uint8_t magic_number = 1;
 	int warm_up =5;
-	KEY_SIZE_PIMNIC =64;
-	for (uint64_t i = 0; i < ops/REQUEST_PER_DPU; i++) {
+	KEY_SIZE_PIMNIC =64*512;
+	for (uint64_t i = 0; i < ops/512; i++) {
 		std::cout<<"================== iteration : "<<i<<" =================="<<std::endl;
-        VALUE_MAGIC_OFFSET = field_length_array[i]/64*64+64;
-		VALUE_SIZE_PIMNIC = field_length_array[i];
+        // VALUE_MAGIC_OFFSET = field_length_array[i]/64*64+64;
+		// VALUE_SIZE_PIMNIC = field_length_array[i];
+		VALUE_SIZE_PIMNIC = 0;
+		for(int j=i*512;j<(i+1)*512;j++){
+			VALUE_SIZE_PIMNIC += field_length_array[j];
+		}
+		VALUE_MAGIC_OFFSET = VALUE_SIZE_PIMNIC/64*64+64;
+		// std::cout <<"VALUE_SIZE_PIMNIC: "<<VALUE_SIZE_PIMNIC<<std::endl;
+		// std::cout <<"VALUE_MAGIC_OFFSET: "<<VALUE_MAGIC_OFFSET<<std::endl;
 		// std::cout <<"start setting address is : "<<std::hex<<(void*)get_dpu_addr(0,0,1000)<<std::dec<<std::endl;
 		for(int j=0;j<total_dpu_num;j++){
 			((char**)bufs)[0][get_dpu_addr(slice_id_array[j],dpu_array[j],MAGIC_OFFSET)] = magic_number;
@@ -366,6 +373,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 			while(cmpt_dpu_cnt < total_dpu_num){
 				int start_dpu = cmpt_dpu_cnt;
 				post_send(*qp_handlers[0], get_dpu_addr(slice_id_array[start_dpu],dpu_array[start_dpu],VALUE_MAGIC_OFFSET), 8 *16);
+				// std::cout <<"post send dpu from "<<start_dpu<<" to "<<start_dpu+15<<" address : "<<std::hex<<(void*)get_dpu_addr(slice_id_array[start_dpu],dpu_array[start_dpu],VALUE_MAGIC_OFFSET)<<" size "<<8 *16<<std::dec<<std::endl;
 				wqe_cnt++;
 				outstanding_rdma_wqe++;		
 				cmpt_dpu_cnt += 16;
@@ -516,8 +524,8 @@ void benchmark_KVStore_client(NetParam &net_param) {
 	send(net_param.sockfd[0], end_buf, sizeof(end_buf), 0);
 	memset(end_buf, 0, sizeof(end_buf));
 	std::cout <<"FIELD_LENGTH: "<<FIELD_LENGTH<<std::endl;
-	std::cout << "RDMA duration: " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
-	std::cout << "total duration: " << (double)(d1)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << "us" << std::endl;
+	std::cout << "RDMA duration: " << (double)(d2)/2.1/1000/(ops - warm_up) << "us" << std::endl;
+	std::cout << "total duration: " << (double)(d1)/2.1/1000/(ops - warm_up) << "us" << std::endl;
 	std::ofstream latency_file;
 	latency_file.open("kvstore_pimnic_ycsb.txt", std::ios::app);
 	latency_file  <<FIELD_LENGTH << " " << (double)(d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up) << " " << (double)(d1 -d2)/2.1/1000/(ops/ REQUEST_PER_DPU - warm_up)<< std::endl;
@@ -547,7 +555,7 @@ void benchmark_KVStore_client(NetParam &net_param) {
 }
 
 void benchmark_KVStore_server(NetParam &net_param) {
-	size_t BUF_SIZE = 260*1024*1024;
+	size_t BUF_SIZE = 760*1024*1024;
 	if(BUF_SIZE <= 4096){
 		BUF_SIZE = 4096*2;
 	}
@@ -636,7 +644,7 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		auto& rank = it->second;
 		rank.open_access();
 		auto addr = rank.base_region_addr;
-		export_pim(net_param, (void*)addr, 260*1024*1024,1);
+		export_pim(net_param, (void*)addr, 760*1024*1024,1);
 	}
 	vhca_resource* client_resource = new vhca_resource[1];
 
@@ -655,7 +663,7 @@ void benchmark_KVStore_server(NetParam &net_param) {
 		rank.open_access();
 
 		auto addr = rank.base_region_addr;
-		export_pim(net_param, (void*)addr, 260*1024*1024,2);
+		export_pim(net_param, (void*)addr, 760*1024*1024,2);
 		std::cout << "PIM Address : "<<addr<<std::endl;
 	}
 

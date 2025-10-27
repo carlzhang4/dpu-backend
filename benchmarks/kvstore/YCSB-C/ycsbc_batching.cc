@@ -30,7 +30,6 @@ int DelegateClient(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int num_ops,
   db->Init();
   ycsbc::Client client(*db, *wl);
   int oks = 0;
-  int batch_size = 512;
   for (int i = 0; i < num_ops; ++i) {
     if (is_loading) {
       oks += client.DoInsert();
@@ -48,7 +47,7 @@ int DelegateClient_batching(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int nu
   db->Init();
   ycsbc::Client client(*db, *wl);
   int oks = 0;
-  int batch_size = 100;
+  int batch_size = 512; 
   printf("Starting batching transactions...\n");
   for (int i = 0; i < num_ops;i+= batch_size) {
     printf("Batching transaction %d\n", i);

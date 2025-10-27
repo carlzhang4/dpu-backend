@@ -58,7 +58,7 @@ extern "C" {
 
 #define MAX_FIELDS   10
 #define FIELD_CAP    28   // 每个 field 的最大字节数
-#define VALUE_CAP    4   // 每个 value 的最大字节数
+#define VALUE_CAP    512   // 每个 value 的最大字节数
 #define PER_PAIR_BYTES (FIELD_CAP + VALUE_CAP)
 #define VALUE_SLOT_SIZE 10*VALUE_CAP // 每个 value slot 的字节数
 
@@ -610,7 +610,7 @@ void thread_KVStore_server_batching_pim_parallel(int thread_index, QpHandler *ha
 	}
 	DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "dpu_id",0, sizeof(uint32_t), DPU_XFER_DEFAULT));
 	
-	int batch_size_host = 100;
+	int batch_size_host = 512;
 	DPU_FOREACH(set, dpu, each_dpu){
 		DPU_ASSERT(dpu_prepare_xfer(dpu,&(batch_size_host)));
 	}
@@ -799,6 +799,10 @@ void thread_KVStore_server_batching_pim_parallel(int thread_index, QpHandler *ha
 		offset = resp_offset + align64(resp_total);
 		if (offset >= BUF_SIZE) offset = 0;
 		magic_number++;
+		if((magic_number-1)*batch_size_host >= 10000) {
+			std::cout <<"DPU Kernel : "<< (double)(d1)/2.1/1000/10000 << "us" << std::endl;
+			
+		}
 	}
 		
 		

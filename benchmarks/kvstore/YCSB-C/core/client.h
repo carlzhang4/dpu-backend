@@ -86,7 +86,7 @@ inline int Client::TransactionRead() {
 
 inline int Client::TransactionRead_Batching() {
   std::vector<std::string> keys;
-  int batch_size = 100;
+  int batch_size = 512;
   const std::string &table = workload_.NextTable();
   for (int i = 0; i < batch_size; ++i) {
       const std::string &key = workload_.NextTransactionKey();
