@@ -24,10 +24,11 @@ PIMDB::PIMDB(NetParam &net_param)
   buffer_offset = 0;
   
   ALLOCATE(wc_send, struct ibv_wc, CTX_POLL_BATCH);
-  //* wating for server to be ready
-  char start_buf[10];
-	int bytes_recv = recv(net_param.sockfd[0], start_buf, sizeof(start_buf), 0);
+//   //* wating for server to be ready
+//   char start_buf[10];
+// 	int bytes_recv = recv(net_param.sockfd[0], start_buf, sizeof(start_buf), 0);
 	
+    std::cout << " received ready signal from server" << std::endl;
 
 }
 
@@ -44,7 +45,7 @@ response format:
     int PIMDB::Read(const std::string &table, const std::string &key,
                      const std::vector<std::string> *fields,
                      std::vector<KVPair> &result) {
-        // std::cout << "PIMDB::Read: key=" << key << std::endl;
+        
         
         // request format: [ key_size: u64 ][ key bytes ][ magic_num: u64 ]
         const uint64_t key_len = static_cast<uint64_t>(key.size());
@@ -65,9 +66,13 @@ response format:
         std::memcpy(req_base + sizeof(uint64_t) + key.size(), &magic_num, sizeof(uint64_t));
 
         // RDMA write request to server
+        std::cout << "post send key to server" << std::endl;
         post_send(*qp_handlers, req_offset, req_size);
+        std::cout << "post send key to server" << std::endl;
+
         while (!poll_send_cq(*qp_handlers, wc_send)) {}
 
+        std::cout << "poll send key to server";
         // Response starts right after the request (aligned)
         const size_t resp_offset = req_offset + align64(req_size);
         volatile uint8_t *resp_base = reinterpret_cast<volatile uint8_t *>(buf) + resp_offset;
@@ -107,7 +112,7 @@ response format:
             value_ptr += val_len;
             result.emplace_back(std::move(field), std::move(val));
         }
-        // std::cout << "Received value of size: " << value_size << std::endl;
+        std::cout << "Received value of size: " << value_size << std::endl;
         // for(const auto& kv : result) {
         //     std::cout << "  field=" << kv.first << " value=" << kv.second << std::endl;
         // }

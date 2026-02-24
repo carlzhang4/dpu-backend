@@ -77,8 +77,8 @@ int GID_INDEX;
 int NUMA_NODE;
 int BATCH_SIZE = 1;
 int OUTSTANDING = 8;
-int DPU_NUM = 8;
-uint64_t TOTAL_DPU_MEM_SIZE = 8*1024;
+int DPU_NUM ;
+uint64_t TOTAL_DPU_MEM_SIZE ;
 //std::atomic<bool> stop_flag = false;
 //std::atomic<double> total_bw = 0;
 //void ctrl_c_handler(int) { stop_flag = true; }
@@ -92,7 +92,8 @@ double scale_value = 10;
 void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops, NetParam net_param) {
 	struct dpu_set_t set,dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
+	std::cout << "DPU_NUM in server: " << DPU_NUM << std::endl;
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 
@@ -148,7 +149,8 @@ void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops
 void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops,NetParam net_param) {
 	struct dpu_set_t set,dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	//std::cout<< "TOTAL_DPU_MEM_SIZE in client: " << TOTAL_DPU_MEM_SIZE << std::endl;
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);
@@ -221,7 +223,7 @@ void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops
 	std::cout << " Bandwidth: " << speed << " GB/s" << std::endl;
 	//* write the set up and bandwidth to a file
 	std::ofstream out("bandwidth.txt", std::ios::app);
-	out << DPU_NUM << " " << OUTSTANDING<< " " <<TOTAL_DPU_MEM_SIZE<< " " << speed  << std::endl;
+	out << DPU_NUM << " " <<TOTAL_DPU_MEM_SIZE<< " " << speed  << std::endl;
 	out.close();
 	free(wc_send);
 }
@@ -231,6 +233,7 @@ void benchmark(NetParam &net_param) {
 	LOG_I("%-20s : %d", "HardwareConcurrency", num_cpus);
 	assert(NUM_THREADS <= num_cpus);
 
+	// TOTAL_DPU_MEM_SIZE = PACK_SIZE;
 	BUF_SIZE = (uint64_t)TOTAL_DPU_MEM_SIZE * OUTSTANDING;
 	if(BUF_SIZE <= 4096){
 		BUF_SIZE = 4096*2;
@@ -338,6 +341,8 @@ int main(int argc, char *argv[]) {
 	OUTSTANDING = FLAGS_outstanding;
 	DPU_NUM = FLAGS_dpu_num;
 	TOTAL_DPU_MEM_SIZE = FLAGS_total_dpu_mem_size;
+	std::cout << "Total DPU MEM SIZE: " << TOTAL_DPU_MEM_SIZE << std::endl;
+	
 
 	NetParam net_param;
 	net_param.numNodes = 2;

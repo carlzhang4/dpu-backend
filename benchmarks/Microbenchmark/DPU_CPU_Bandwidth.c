@@ -66,18 +66,18 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 
     printf("DPU 2 CPU and CPU 2 DPU Bandwidth Test\n");
     //DPU_ASSERT(dpu_alloc_one_per_dpu(nr_dpus, "nrThreadPerPool=1", &set));
-    DPU_ASSERT(dpu_alloc(nr_dpus, "nrThreadPerPool=1", &set));
-    printf("alloc done\n");
-    for(int i=0;i<nr_dpus;i++){
-        printf("*************\n");
-        struct dpu_t *dpu = &(set.dpu[i]);
-            dpu_slice_id_t slice_id = dpu->slice_id;
-            dpu_member_id_t dpu_id = dpu->dpu_id;
+    DPU_ASSERT(dpu_alloc(nr_dpus, "nrThreadPerPool=8", &set));
+    // printf("alloc done\n");
+    // for(int i=0;i<nr_dpus;i++){
+    //     printf("*************\n");
+    //     struct dpu_t *dpu = &(set.dpu[i]);
+    //         dpu_slice_id_t slice_id = dpu->slice_id;
+    //         dpu_member_id_t dpu_id = dpu->dpu_id;
 
-            printf("slice_id : %d, dpu_id : %d\n",(uint8_t)slice_id,(uint8_t)dpu_id);
-    }
-    getchar();
-    printf("DPU allocated\n");
+    //         printf("slice_id : %d, dpu_id : %d\n",(uint8_t)slice_id,(uint8_t)dpu_id);
+    // }
+    // getchar();
+    // printf("DPU allocated\n");
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 
@@ -123,13 +123,13 @@ int test(uint32_t nr_dpus,uint32_t test_size){
     }
     printf("*********************************************\n");
     printf("total dpu number : %d\n",nr_dpus);
-    printf("total data size : %d MB\n",test_size/1024/1024);
+    printf("total data size : %f MB\n",1.0*test_size/1024/1024);
     printf("DPU 2 CPU time cost : %lf\n",1.0*d1/1000000/interval);
     printf("CPU 2 DPU cost : %lf\n",1.0*d2/1000000/interval);
     printf("DPU 2 CPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval);
     printf("CPU 2 DPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
     FILE *fp = fopen("DPU_CPU_Bandwidth.txt","a");
-    fprintf(fp,"%d %d %lf %lf %lf %lf\n",nr_dpus,test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
+    fprintf(fp,"%d %f %lf %lf %lf %lf\n",nr_dpus,test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
     fclose(fp);
     DPU_ASSERT(dpu_free(set));
     return 0;
@@ -139,8 +139,8 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 int main()
 {
     // for(uint32_t i=1;i<=1024;i*=2){
-        for(uint32_t j=64;j<=4*32*1024*1024;j*=2){
-            test(4,j);
+        for(uint32_t j=128;j<=8*1024*1024;j*=2){
+            test(32,j);
         }
     // }
     // test(8,4194304);

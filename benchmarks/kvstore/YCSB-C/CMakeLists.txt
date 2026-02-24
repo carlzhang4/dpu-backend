@@ -42,3 +42,10 @@ target_link_libraries(ycsbc_batching PRIVATE  ${LIBRARIES})
 target_include_directories(ycsbc_batching PUBLIC
         ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/YCSB-C
 )
+
+add_executable(ycsbc_batching_multicore ./ycsbc_batching_multicore ${SRCS})
+
+target_link_libraries(ycsbc_batching_multicore PRIVATE  ${LIBRARIES})
+target_include_directories(ycsbc_batching_multicore PUBLIC
+        ${CMAKE_SOURCE_DIR}/benchmarks/kvstore/YCSB-C
+)

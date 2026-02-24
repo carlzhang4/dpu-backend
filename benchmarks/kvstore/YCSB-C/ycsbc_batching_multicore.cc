@@ -21,6 +21,9 @@
 
 using namespace std;
 
+
+#define MAX_THREADS 48
+
 void UsageMessage(const char *command);
 bool StrStartWith(const char *str, const char *pre);
 string ParseCommandLine(int argc, const char *argv[], utils::Properties &props);
@@ -48,39 +51,56 @@ int DelegateClient_batching(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int nu
   ycsbc::Client client(*db, *wl);
   int oks = 0;
   int batch_size = 8192; 
-  printf("Starting batching transactions...\n");
+  numa_run_on_node(1);   // 限制线程只在该 NUMA node 上运行
+  numa_set_preferred(1); // 内存分配也优先使用该节点
+  //printf("Starting batching transactions...\n");
   for (int i = 0; i < num_ops;i+= batch_size) {
-    printf("Batching transaction %d\n", i);
+    //printf("Batching transaction %d\n", i);
       oks += client.TransactionRead_Batching();
   }
   db->Close();
   return oks;
 }
 
+// void thread_insert_and_get(int thread_index,NetParam net_param, utils::Properties prop)
+
 
 
 int main(const int argc, const char *argv[]) {
   utils::Properties props;
-  NetParam net_param;
-  net_param.numNodes = 2;
-	net_param.nodeId = 1;
-	net_param.serverIp = "127.0.0.1";
-	net_param.device_name = "mlx5_0";
-	net_param.gid_index = 3;
-	net_param.numa_node = 0;
-	net_param.batch_size = 4096;
-	net_param.sge_per_wr = 1;
-	net_param.sock_port = 6666;
-	net_param.use_devx_context = false;
-  init_net_param(net_param);
-	socket_init(net_param);
-	roce_init(net_param, 1);
+
 
   std::cout << "YCSB-C Benchmarking Tool" << std::endl;
   string file_name = ParseCommandLine(argc, argv, props);
 
-    std::cout << "Using database " << props["dbname"] << std::endl;
-  ycsbc::DB *db = ycsbc::DBFactory::CreateDB(props, net_param);
+
+  const int num_threads = stoi(props.GetProperty("threadcount", "1"));
+  NetParam* net_param_ptr;
+  net_param_ptr = new NetParam[MAX_THREADS];
+  for(int i = 0; i < num_threads; i++){
+    net_param_ptr[i].numNodes = 2;
+    net_param_ptr[i].nodeId = 1;
+    net_param_ptr[i].serverIp = "127.0.0.1";
+    net_param_ptr[i].device_name = "mlx5_0";
+    net_param_ptr[i].gid_index = 3;
+    net_param_ptr[i].numa_node = 1;
+    net_param_ptr[i].batch_size = 4096;
+    net_param_ptr[i].sge_per_wr = 1;
+    net_param_ptr[i].sock_port = 6666 + i;
+    net_param_ptr[i].use_devx_context = false;
+    init_net_param(net_param_ptr[i]);
+    socket_init(net_param_ptr[i]);
+    roce_init(net_param_ptr[i], 1);
+  }
+
+  std::cout << "Using database " << props["dbname"] << std::endl;
+  // ycsbc::DB *db = ycsbc::DBFactory::CreateDB(props, net_param);
+  ycsbc::DB *db[MAX_THREADS];
+  for(int i = 0; i < num_threads; i++){
+    std::cout << "starting to create database for thread " << i << std::endl;
+    db[i] = ycsbc::DBFactory::CreateDB(props, net_param_ptr[i]);
+    std::cout << "created database for thread " << i << std::endl;
+  }
 
   std::cout << "Using workload " << props["workload"] << std::endl;
   if (!db) {
@@ -93,14 +113,21 @@ int main(const int argc, const char *argv[]) {
   wl.Init(props);
 
   std::cout << "Using workload " << props["workload"] << std::endl;
-  const int num_threads = stoi(props.GetProperty("threadcount", "1"));
+
+  char start_buf[10];
+  // 	int bytes_recv = recv(net_param.sockfd[0], start_buf, sizeof(start_buf), 0);
+  for(int i = 0; i < num_threads; i++){
+    int bytes_recv = recv(net_param_ptr[i].sockfd[0], start_buf, sizeof(start_buf), 0);
+    std::cout << "received ready signal from server for thread " << i << std::endl;
+  }   
+  
   getchar();
   // Loads data
   vector<future<int>> actual_ops;
   int total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
   for (int i = 0; i < num_threads; ++i) {
     actual_ops.emplace_back(async(launch::async,
-        DelegateClient, db, &wl, 10000, true));
+        DelegateClient, db[i], &wl, 10000, true));
   }
   assert((int)actual_ops.size() == num_threads);
 
@@ -118,7 +145,7 @@ int main(const int argc, const char *argv[]) {
   timer.Start();
   for (int i = 0; i < num_threads; ++i) {
     actual_ops.emplace_back(async(launch::async,
-        DelegateClient_batching, db, &wl, total_ops / num_threads, false));
+        DelegateClient_batching, db[i], &wl, total_ops / num_threads, false));
   }
   assert((int)actual_ops.size() == num_threads);
 
@@ -194,7 +221,8 @@ string ParseCommandLine(int argc, const char *argv[], utils::Properties &props) 
       }
       input.close();
       argindex++;
-    } else {
+    } 
+    else {
       cout << "Unknown option '" << argv[argindex] << "'" << endl;
       exit(0);
     }

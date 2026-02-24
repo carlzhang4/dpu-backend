@@ -77,7 +77,7 @@ class PIMDB : public DB {
 
   int Insert(const std::string &table, const std::string &key,
              std::vector<KVPair> &values) {
-    std::cout << "PIMDB::Insert: key=" << key << " values.size=" << values.size() << std::endl;
+    // std::cout << "PIMDB::Insert: key=" << key << " values's field length=" << values[0].second.size() << std::endl;
     return Update(table, key, values);
   }
 

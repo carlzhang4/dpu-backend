@@ -186,7 +186,7 @@ void thread_KVStore_server(int thread_index, QpHandler *handler, void *buf, size
 				dst[n] = static_cast<char>(src[n]);
 			}
 		}
-
+		std::cout << "receive key" <<std::endl;
 
         // 查询 KVStore
 		std::vector<KVPair> values;

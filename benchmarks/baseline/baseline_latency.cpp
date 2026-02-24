@@ -86,7 +86,7 @@ void sub_latency_server(int thread_index, QpHandler *handler, void *buf, size_t 
 	struct dpu_set_t set;
 	struct dpu_set_t dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	int ne_recv;
@@ -104,11 +104,11 @@ void sub_latency_server(int thread_index, QpHandler *handler, void *buf, size_t 
 		}
 		t1 = get_tscp();
 		/*copy data from CPU to DPU*/
-		// DPU_FOREACH(set, dpu, each_dpu){
-		// 	DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
-		// }
-		// DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
-		// t2 = get_tscp();
+		DPU_FOREACH(set, dpu, each_dpu){
+			DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+		}
+		DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		t2 = get_tscp();
 		uint64_t* send_data = (uint64_t*)malloc(sizeof(uint64_t)*2);
 		send_data[0] = t1;
 		send_data[1] = t2;
@@ -125,7 +125,7 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 	struct dpu_set_t set;
 	struct dpu_set_t dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);
@@ -143,10 +143,10 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 		
 		time_client_start_copy[i] = get_tscp();
 		/*copy data from DPU to CPU*/
-		// DPU_FOREACH(set, dpu, each_dpu){
-        //     DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
-        // }
-        // DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
+		DPU_FOREACH(set, dpu, each_dpu){
+            DPU_ASSERT(dpu_prepare_xfer(dpu, &((char*)buf)[each_dpu * TOTAL_DPU_MEM_SIZE/DPU_NUM]));
+        }
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_FROM_DPU, DPU_MRAM_HEAP_POINTER_NAME, 0, TOTAL_DPU_MEM_SIZE/DPU_NUM, DPU_XFER_DEFAULT));
 		time_client_start_rdma[i] = get_tscp();
 	
 		/* RDMA to server */

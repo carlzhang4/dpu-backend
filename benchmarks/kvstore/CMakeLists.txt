@@ -131,6 +131,20 @@ target_compile_definitions(kvstore_ycsbc_pim PUBLIC DPU_TOOLS_VERSION=${UPMEM_VE
 set_target_properties(kvstore_ycsbc_pim PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(kvstore_ycsbc_pim gen_files)
 
+add_executable(kvstore_ycsbc_pim_multithread  ./kvstore_ycsbc_pim_multithread.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(kvstore_ycsbc_pim_multithread PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries(kvstore_ycsbc_pim_multithread  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_ycsbc_pim_multithread PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_ycsbc_pim_multithread PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_ycsbc_pim_multithread gen_files)
+
+add_executable(kvstore_ycsbc_cpu_multithread  ./kvstore_ycsbc_cpu_multithread.cpp ${ALL_DPU_SOURCES} ${SRCS})
+target_include_directories(kvstore_ycsbc_cpu_multithread PUBLIC ${INCLUDE_DIRECTORIES} )
+target_link_libraries(kvstore_ycsbc_cpu_multithread  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)
+target_compile_definitions(kvstore_ycsbc_cpu_multithread PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(kvstore_ycsbc_cpu_multithread PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(kvstore_ycsbc_cpu_multithread gen_files)
+
 add_executable(kvstore_pim_multitasklets  ./kvstore_pim_multitasklets.cpp ${ALL_DPU_SOURCES} ${SRCS})  
 target_include_directories(kvstore_pim_multitasklets PUBLIC ${INCLUDE_DIRECTORIES} )     
 target_link_libraries(kvstore_pim_multitasklets  dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}  ${LIBRARIES} dpuverbose)

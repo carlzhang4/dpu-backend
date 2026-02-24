@@ -12,7 +12,7 @@ do
             for i in {1..3}
             do
                 echo "Run $i"
-                ./benchmarks/GNN/GNN_RDMA_pim_AR -nodeId=1 -serverIp=127.0.0.1 -coreOffset=1  -dpu_num $DPU_NUM  -dataset $DATA_SET -feature_dim $feature_dim 
+                ./benchmarks/GNN/GNN_RDMA_pim -nodeId=1 -serverIp=127.0.0.1 -coreOffset=1  -dpu_num $DPU_NUM  -dataset $DATA_SET -feature_dim $feature_dim 
             done
         done
     done

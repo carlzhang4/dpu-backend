@@ -10,7 +10,7 @@ do
             for i in {1..3}
             do
                 echo "Run $i"
-                ./benchmarks/GNN/GNN_RDMA_pim_AR --dpu_num $DPU_NUM  -dataset $DATA_SET -feature_dim $feature_dim 
+                ./benchmarks/GNN/GNN_RDMA_pim --dpu_num $DPU_NUM  -dataset $DATA_SET -feature_dim $feature_dim 
             done
         done
     done
