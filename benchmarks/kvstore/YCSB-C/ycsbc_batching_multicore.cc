@@ -50,7 +50,7 @@ int DelegateClient_batching(ycsbc::DB *db, ycsbc::CoreWorkload *wl, const int nu
   db->Init();
   ycsbc::Client client(*db, *wl);
   int oks = 0;
-  int batch_size = 8192; 
+  int batch_size = 64; 
   numa_run_on_node(1);   // 限制线程只在该 NUMA node 上运行
   numa_set_preferred(1); // 内存分配也优先使用该节点
   //printf("Starting batching transactions...\n");
@@ -121,7 +121,7 @@ int main(const int argc, const char *argv[]) {
     std::cout << "received ready signal from server for thread " << i << std::endl;
   }   
   
-  getchar();
+  //getchar();
   // Loads data
   vector<future<int>> actual_ops;
   int total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
@@ -158,6 +158,7 @@ int main(const int argc, const char *argv[]) {
   cerr << "# Transaction throughput (KTPS)" << endl;
   cerr << props["dbname"] << '\t' << file_name << '\t' << num_threads << '\t';
   cerr << total_ops / duration / 1000 << endl;
+  std::cout << "total time : "<< duration*1000*1000 << " us" <<std::endl;
 }
 
 

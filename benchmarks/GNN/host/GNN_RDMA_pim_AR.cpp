@@ -1169,7 +1169,7 @@ void thread_GNN(int thread_index, QpHandler *handler, void *buf, size_t ops,NetP
 	std::cout << "total time: " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 << "ms" << std::endl;
 	DPU_ASSERT(dpu_free(dpu_set));
     std::ofstream latency_file;
-	latency_file.open("GNN_RDMA_pim_latency_PID.txt", std::ios::app);
+	latency_file.open("GNN_RDMA_pim_latency.txt", std::ios::app);
 	latency_file  << DPU_NUM << " " << feature_dim << " " << t1 << " " << t2 << " " << t3 << " " << t4 << " " << t5 << " " << t6 << " " << t7 << " " << t8 << " " << t9 << " " << t10 << " " << t11 << " " << t1 + t2 + t3 + t4 + t5 + t6 + t7 + t8 + t9 + t10 + t11 << " "<< std::endl;
 	latency_file.close();
 

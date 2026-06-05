@@ -92,7 +92,7 @@ double scale_value = 10;
 void sub_task_server(int thread_index, QpHandler *handler, void *buf, size_t ops, NetParam net_param) {
 	struct dpu_set_t set,dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
 	std::cout << "DPU_NUM in server: " << DPU_NUM << std::endl;
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
@@ -150,7 +150,7 @@ void sub_task_client(int thread_index, QpHandler *handler, void *buf, size_t ops
 	struct dpu_set_t set,dpu;
 	uint32_t each_dpu;
 	//std::cout<< "TOTAL_DPU_MEM_SIZE in client: " << TOTAL_DPU_MEM_SIZE << std::endl;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);

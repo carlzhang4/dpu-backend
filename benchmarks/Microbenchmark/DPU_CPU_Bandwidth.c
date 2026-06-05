@@ -129,7 +129,7 @@ int test(uint32_t nr_dpus,uint32_t test_size){
     printf("DPU 2 CPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval);
     printf("CPU 2 DPU Bandwidth: %lf GB/s \n",1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
     FILE *fp = fopen("DPU_CPU_Bandwidth.txt","a");
-    fprintf(fp,"%d %f %lf %lf %lf %lf\n",nr_dpus,test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
+    fprintf(fp,"%d %f %lf %lf %lf %lf\n",nr_dpus,1.0*test_size/1024/1024,1.0*d1/1000000/interval,1.0*d2/1000000/interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d1*1000000000*interval,1.0*nr_dpus*test_size/1024/1024/1024/1.0/d2*1000000000*interval);
     fclose(fp);
     DPU_ASSERT(dpu_free(set));
     return 0;
@@ -138,11 +138,11 @@ int test(uint32_t nr_dpus,uint32_t test_size){
 
 int main()
 {
-    // for(uint32_t i=1;i<=1024;i*=2){
-        for(uint32_t j=128;j<=8*1024*1024;j*=2){
-            test(32,j);
+    for(uint32_t i=64;i<=64;i*=2){
+        for(uint32_t j=128;j<=4*1024*1024;j*=2){
+            test(i,j);
         }
-    // }
+    }
     // test(8,4194304);
     return 0;
 }

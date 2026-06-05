@@ -86,7 +86,7 @@ void sub_latency_server(int thread_index, QpHandler *handler, void *buf, size_t 
 	struct dpu_set_t set;
 	struct dpu_set_t dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	int ne_recv;
@@ -125,7 +125,7 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 	struct dpu_set_t set;
 	struct dpu_set_t dpu;
 	uint32_t each_dpu;
-	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=4", &set));
+	DPU_ASSERT(dpu_alloc(DPU_NUM, "nrThreadPerPool=8", &set));
     DPU_ASSERT(dpu_load(set, DPU_BINARY_USER, NULL));
     DPU_ASSERT(dpu_launch(set, DPU_SYNCHRONOUS));
 	sleep(2);
@@ -160,7 +160,7 @@ void sub_latency_client(int thread_index, QpHandler *handler, void *buf, size_t 
 		byte_recv = recv(net_param.sockfd[0], recv_data, sizeof(uint64_t)*2, 0);
 		time_server_end_rdma[i] = recv_data[0];
 		time_server_end_copy[i] = recv_data[1];
-		std::cout << 1.0*(time_server_end_rdma[i] - time_client_start_rdma[i])/2.1 << std::endl;
+		//std::cout << 1.0*(time_server_end_rdma[i] - time_client_start_rdma[i])/2.1 << std::endl;
 	}
 	uint64_t average_latency_DPU2CPU =0;
 	uint64_t average_latency_RDMA =0;

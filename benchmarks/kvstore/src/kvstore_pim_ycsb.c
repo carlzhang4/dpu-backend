@@ -13,8 +13,8 @@
 
 #define MAX_FIELDS   10
 #define FIELD_CAP    28   // 每个 field 的最大字节数
-#define VALUE_CAP    4  // 每个 value 的最大字节数
-#define VALUE_SLOT_SIZE 10*(4 + 28) // 每个 value slot 的字节数
+#define VALUE_CAP    64  // 每个 value 的最大字节数
+#define VALUE_SLOT_SIZE 10*(VALUE_CAP+ 28) // 每个 value slot 的字节数
 
 
 

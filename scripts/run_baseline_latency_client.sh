@@ -6,6 +6,6 @@ do
     for i in {1..3}
     do
         echo "Run $i"
-        ../build/benchmarks/baseline/baseline_latency -nodeId=1 -serverIp=127.0.0.1 -coreOffset=1 -total_dpu_mem_size=$N -dpu_num=16
+        ../build/benchmarks/baseline/baseline_latency -nodeId=1 -serverIp=127.0.0.1 -coreOffset=1 -total_dpu_mem_size=$N -dpu_num=4
     done
 done
