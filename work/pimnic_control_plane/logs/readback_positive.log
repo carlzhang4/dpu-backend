@@ -1,0 +1,1 @@
+mram-readback PASS rank=0 group=0 lanes=16 len=4096 inject_shift=0 expected_first_bad=-1

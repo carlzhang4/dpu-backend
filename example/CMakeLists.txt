@@ -83,6 +83,90 @@ target_compile_definitions(bf_checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VER
 set_target_properties(bf_checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(bf_checksum_host gen_files)
 
+set(BFDMA_RUNTIME_SOURCES
+        ../bfdma/dma_export.cpp
+        ../bfdma/connection_manager.cpp
+        ../bfdma/libr.cpp
+        ../bfdma/util.cpp
+        ../bfdma/devx_device.cpp
+        ../bfdma/devx_mr.cpp
+        )
+
+set(PIMNIC_BF3_RUNTIME_SOURCES
+        ../pimnic_bf3_runtime/mram_addr.cpp
+        ../pimnic_bf3_runtime/mram_guard.cpp
+        )
+
+add_executable(bf_checksum_runtime_host ./bf_checksum_runtime_host.cpp ${PIMNIC_BF3_RUNTIME_SOURCES} ${BFDMA_RUNTIME_SOURCES} ${ALL_SOURCES} )
+target_include_directories( bf_checksum_runtime_host PUBLIC ${INCLUDE_DIRECTORIES} ../pimnic_bf3_runtime ../bfdma )
+target_link_libraries( bf_checksum_runtime_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose ibverbs mlx5 numa )
+target_compile_definitions(bf_checksum_runtime_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(bf_checksum_runtime_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(bf_checksum_runtime_host gen_files)
+
+add_executable(bf_checksum_runtime_host_only ./bf_checksum_runtime_host_only.cpp ${PIMNIC_BF3_RUNTIME_SOURCES} ${ALL_SOURCES} )
+target_include_directories( bf_checksum_runtime_host_only PUBLIC ${INCLUDE_DIRECTORIES} ../pimnic_bf3_runtime )
+target_link_libraries( bf_checksum_runtime_host_only pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
+target_compile_definitions(bf_checksum_runtime_host_only PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(bf_checksum_runtime_host_only PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(bf_checksum_runtime_host_only gen_files)
+
+add_executable(bf_pimnic_runtime_host ./bf_pimnic_runtime_host.cpp ${PIMNIC_BF3_RUNTIME_SOURCES} ${BFDMA_RUNTIME_SOURCES} ${ALL_SOURCES} )
+target_include_directories( bf_pimnic_runtime_host PUBLIC ${INCLUDE_DIRECTORIES} ../pimnic_bf3_runtime ../bfdma )
+target_link_libraries( bf_pimnic_runtime_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose ibverbs mlx5 numa )
+target_compile_definitions(bf_pimnic_runtime_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VERSION})
+set_target_properties(bf_pimnic_runtime_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(bf_pimnic_runtime_host gen_files)
+
+add_executable(mux_collision_probe
+        ../tools/mux_collision_probe.c
+        ${ALL_SOURCES}
+        )
+target_include_directories(mux_collision_probe PUBLIC
+        ${INCLUDE_DIRECTORIES}
+        ../tools
+        )
+target_link_libraries(mux_collision_probe
+        pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT}
+        ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}
+        dpuverbose
+        )
+target_compile_definitions(mux_collision_probe PUBLIC
+        DPU_TOOLS_VERSION=${UPMEM_VERSION}
+        PIMNIC_COLLISION_PROBE_MAIN=1
+        )
+set_target_properties(mux_collision_probe PROPERTIES
+        VERSION ${UPMEM_VERSION}
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools"
+        )
+add_dependencies(mux_collision_probe gen_files)
+
+add_executable(mram_readback_test
+        ./mram_readback_test.cpp
+        ../pimnic_bf3_runtime/mram_addr.cpp
+        ../pimnic_bf3_runtime/mram_guard.cpp
+        ../pimnic_bf3_runtime/test_pattern.cpp
+        ${ALL_SOURCES}
+        )
+target_include_directories(mram_readback_test PUBLIC
+        ${INCLUDE_DIRECTORIES}
+        ../pimnic_bf3_runtime
+        )
+target_link_libraries(mram_readback_test
+        pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT}
+        ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}
+        dpuverbose
+        )
+target_compile_options(mram_readback_test PRIVATE -mclflushopt)
+target_compile_definitions(mram_readback_test PUBLIC
+        DPU_TOOLS_VERSION=${UPMEM_VERSION}
+        DPU_BINARY="./build/example/bf_pimnic_runtime"
+        )
+set_target_properties(mram_readback_test PROPERTIES
+        VERSION ${UPMEM_VERSION}
+        )
+add_dependencies(mram_readback_test gen_files)
+
 add_executable(bf3_mux_host
         ../work/bf3_mux_flip/bf3_mux_host.cpp
         ../bfdma/dma_export.cpp
@@ -145,6 +229,24 @@ add_custom_command(
   DEPENDS ${input_file_bf_checksum}
 )
 
+set(input_file_bf_checksum_runtime "${CMAKE_CURRENT_SOURCE_DIR}/bf_checksum_runtime.c")
+set(output_file_bf_checksum_runtime "bf_checksum_runtime")
+
+add_custom_command(
+  OUTPUT ${output_file_bf_checksum_runtime}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_bf_checksum_runtime} -o ${output_file_bf_checksum_runtime}
+  DEPENDS ${input_file_bf_checksum_runtime}
+)
+
+set(input_file_bf_pimnic_runtime "${CMAKE_CURRENT_SOURCE_DIR}/bf_pimnic_runtime.c")
+set(output_file_bf_pimnic_runtime "bf_pimnic_runtime")
+
+add_custom_command(
+  OUTPUT ${output_file_bf_pimnic_runtime}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_bf_pimnic_runtime} -o ${output_file_bf_pimnic_runtime}
+  DEPENDS ${input_file_bf_pimnic_runtime}
+)
+
 set(input_file_bf3_mux_runtime "${CMAKE_CURRENT_SOURCE_DIR}/../work/bf3_mux_flip/bf3_mux_runtime.c")
 set(output_file_bf3_mux_runtime "bf3_mux_runtime")
 
@@ -166,5 +268,5 @@ add_custom_command(
 add_custom_target(
   generate_output_files
   ALL
-  DEPENDS ${output_file_bf_checksum} ${output_file_bf3_mux_runtime} ${output_file_checksum} ${output_file_polling_test}
+  DEPENDS ${output_file_bf_checksum} ${output_file_bf_checksum_runtime} ${output_file_bf_pimnic_runtime} ${output_file_bf3_mux_runtime} ${output_file_checksum} ${output_file_polling_test}
 )

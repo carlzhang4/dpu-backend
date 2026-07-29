@@ -18,5 +18,12 @@ dpu_error_t dpu_wavegen_read_status(struct dpu_t *dpu, uint8_t address,
 dpu_error_t dpu_switch_mux_for_dpu_line(struct dpu_rank_t *rank, uint8_t dpu_id,
 					uint8_t mask);
 
+dpu_error_t fifo_dpu_switch_mux_for_dpu_line(struct dpu_rank_t *rank,
+					     uint8_t dpu_id, uint8_t mask);
+
+dpu_error_t release_fifo_dpu_switch_mux_for_dpu_line(struct dpu_rank_t *rank,
+						     uint8_t dpu_id,
+						     uint8_t mask);
+
 dpu_error_t dpu_switch_mux_for_rank(struct dpu_rank_t *rank,
 				    bool set_mux_for_host);

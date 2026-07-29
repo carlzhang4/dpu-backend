@@ -11,6 +11,8 @@
 #include <dpu_predef_programs.h>
 #include <dpu_rank.h>
 #include <dpu_types.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <ufi_rank_utils.h>
 #include <ufi/ufi.h>
@@ -34,6 +36,12 @@
 
 #define WAVEGEN_MUX_HOST_EXPECTED 0x00
 #define WAVEGEN_MUX_DPU_EXPECTED (MUX_DPU_BANK_CTRL | MUX_DPU_WRITE_CTRL)
+
+static bool pimnic_debug_mux_enabled(void)
+{
+	const char *value = getenv("PIMNIC_DEBUG_MUX");
+	return value != NULL && value[0] != '\0';
+}
 
 static const char *clock_division_to_string(dpu_clock_division_t clock_division)
 {
@@ -1449,6 +1457,118 @@ end:
 	dpu_unlock_rank(rank);
 
 	return status;
+}
+
+static dpu_error_t fifo_switch_mux_for_dpu_line(struct dpu_rank_t *rank,
+						uint8_t dpu_id, uint8_t mask,
+						bool set_mux_for_host)
+{
+	dpu_error_t status = DPU_OK;
+	dpu_member_id_t dpu_pair_base_id = (dpu_member_id_t)(dpu_id & ~1);
+	uint8_t nr_cis =
+		rank->description->hw.topology.nr_of_control_interfaces;
+	uint8_t nr_dpus_per_ci =
+		rank->description->hw.topology.nr_of_dpus_per_control_interface;
+	bool switch_base_line = false;
+	bool switch_friend_line = false;
+	uint8_t current_base_mask = 0;
+	uint8_t current_friend_mask = 0;
+	uint8_t desired_base_mask;
+	uint8_t desired_friend_mask;
+	bool has_friend_line = (dpu_pair_base_id + 1) < nr_dpus_per_ci;
+	dpu_slice_id_t each_slice;
+
+	LOG_RANK(VERBOSE, rank, "[DPU %d]", dpu_id);
+
+	dpu_lock_rank(rank);
+
+	for (each_slice = 0; each_slice < nr_cis; ++each_slice)
+		current_base_mask |= dpu_get_host_mux_mram_state(
+					     rank, each_slice, dpu_pair_base_id)
+				     << each_slice;
+
+	if (has_friend_line) {
+		for (each_slice = 0; each_slice < nr_cis; ++each_slice)
+			current_friend_mask |=
+				dpu_get_host_mux_mram_state(
+					rank, each_slice, dpu_pair_base_id + 1)
+				<< each_slice;
+	}
+
+	if (set_mux_for_host) {
+		desired_base_mask = current_base_mask | mask;
+		desired_friend_mask = current_friend_mask | mask;
+	} else {
+		desired_base_mask = current_base_mask & (uint8_t)~mask;
+		desired_friend_mask = current_friend_mask & (uint8_t)~mask;
+	}
+
+	/* The cached state may be stale after dpu_launch() returns the hardware
+	 * mux to DPU-side. Runtime DMA windows must force the selected pair
+	 * through the hardware sequence even when the cache already matches.
+	 */
+	switch_base_line = mask != 0;
+	switch_friend_line = has_friend_line && mask != 0;
+
+	if (pimnic_debug_mux_enabled()) {
+		printf("PIMNIC_MUX op=%s dpu_id=%u pair_base=%u mask=0x%02x "
+		       "base_current=0x%02x base_desired=0x%02x "
+		       "friend_current=0x%02x friend_desired=0x%02x "
+		       "switch_base=%d switch_friend=%d api_switch=%d\n",
+		       set_mux_for_host ? "begin" : "release", dpu_id,
+		       dpu_pair_base_id, mask, current_base_mask,
+		       desired_base_mask, current_friend_mask,
+		       desired_friend_mask, switch_base_line,
+		       switch_friend_line,
+		       rank->description->configuration.api_must_switch_mram_mux);
+		fflush(stdout);
+	}
+
+	if (!switch_base_line && !switch_friend_line) {
+		LOG_RANK(VERBOSE, rank,
+			 "Mux is in the right direction, nothing to do.");
+		goto end;
+	}
+
+	for (each_slice = 0; each_slice < nr_cis; ++each_slice) {
+		if (switch_base_line)
+			dpu_set_host_mux_mram_state(
+				rank, each_slice, dpu_pair_base_id,
+				desired_base_mask & (1 << each_slice));
+		if (switch_friend_line)
+			dpu_set_host_mux_mram_state(
+				rank, each_slice, dpu_pair_base_id + 1,
+				desired_friend_mask & (1 << each_slice));
+	}
+
+	if (!rank->description->configuration.api_must_switch_mram_mux)
+		goto end;
+
+	if (switch_base_line)
+		FF(host_handle_access_for_dpu(rank, dpu_pair_base_id,
+					      desired_base_mask));
+	if (switch_friend_line)
+		FF(host_handle_access_for_dpu(rank, dpu_pair_base_id + 1,
+					      desired_friend_mask));
+
+end:
+	dpu_unlock_rank(rank);
+
+	return status;
+}
+
+__API_SYMBOL__ dpu_error_t
+fifo_dpu_switch_mux_for_dpu_line(struct dpu_rank_t *rank, uint8_t dpu_id,
+				 uint8_t mask)
+{
+	return fifo_switch_mux_for_dpu_line(rank, dpu_id, mask, true);
+}
+
+__API_SYMBOL__ dpu_error_t
+release_fifo_dpu_switch_mux_for_dpu_line(struct dpu_rank_t *rank,
+					 uint8_t dpu_id, uint8_t mask)
+{
+	return fifo_switch_mux_for_dpu_line(rank, dpu_id, mask, false);
 }
 
 __API_SYMBOL__ dpu_error_t dpu_switch_mux_for_rank(struct dpu_rank_t *rank,
