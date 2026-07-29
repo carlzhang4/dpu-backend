@@ -1,0 +1,25 @@
+Starting X5-latency iterations=100000 pair=0 timeout_us=500000
+[INFO][09:01:01.130][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][09:01:01.135][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][09:01:01.135][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][09:01:01.135][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][09:01:01.135][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][09:01:01.135][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][09:01:01.135][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][09:01:01.180][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7f43c0000000, len:268435456, flag:1048583
+[INFO][09:01:01.180][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x26195ea0: pd:0x26195e10, addr:0x7f43c0000000, len:268435456, umem_id:1, mkey:2096742
+[INFO][09:01:01.180][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+PIM1 export addr=0x7f43c0000000 size=268435456 vhca=0 mkey=2096742 port=6677
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 6677
+[INFO][09:01:29.116][connection_manager.cpp:34][socket_init]                                        connected by 1
+[DEBUG][09:01:29.116][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+CI ownership handoff host->BF3 next_color=0x00 command=0x7f43c0020000 response=0x7f43c0028000
+CI ownership handoff BF3->host BF3_next_color=0x00 host_next_color=0x00
+host SDK independently verified DPU-side mux on 64 DPUs
+BF3 stats completed=100000 ci_commands=4800000 reads=9600003 writes=4800000 decode=0 collision=0 elapsed_ms=24305.017 p50_us=242.825 p99_us=245.615 max_us=317.599
+X5-latency PASS
+[INFO][09:01:53.499][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x26195ea0

@@ -83,6 +83,33 @@ target_compile_definitions(bf_checksum_host PUBLIC DPU_TOOLS_VERSION=${UPMEM_VER
 set_target_properties(bf_checksum_host PROPERTIES VERSION ${UPMEM_VERSION})
 add_dependencies(bf_checksum_host gen_files)
 
+add_executable(bf3_mux_host
+        ../work/bf3_mux_flip/bf3_mux_host.cpp
+        ../bfdma/dma_export.cpp
+        ../bfdma/connection_manager.cpp
+        ../bfdma/libr.cpp
+        ../bfdma/util.cpp
+        ../bfdma/devx_device.cpp
+        ../bfdma/devx_mr.cpp
+        ${ALL_SOURCES}
+        )
+target_include_directories(bf3_mux_host PUBLIC
+        ${INCLUDE_DIRECTORIES}
+        ../work/bf3_mux_flip
+        ../bfdma
+        )
+target_link_libraries(bf3_mux_host
+        pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT}
+        ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES}
+        dpuverbose ibverbs mlx5 numa
+        )
+target_compile_definitions(bf3_mux_host PUBLIC
+        DPU_TOOLS_VERSION=${UPMEM_VERSION}
+        DPU_BINARY="./build/example/bf3_mux_runtime"
+        )
+set_target_properties(bf3_mux_host PROPERTIES VERSION ${UPMEM_VERSION})
+add_dependencies(bf3_mux_host gen_files)
+
 add_executable(polling_test_host ./polling_test_host.c ${ALL_SOURCES} )
 target_include_directories( polling_test_host PUBLIC ${INCLUDE_DIRECTORIES} )
 target_link_libraries( polling_test_host pimnic dpuhw m ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBELF_LIBRARIES} ${Python3_LIBRARIES} ${LIBNUMA_LIBRARIES} dpuverbose )
@@ -118,6 +145,15 @@ add_custom_command(
   DEPENDS ${input_file_bf_checksum}
 )
 
+set(input_file_bf3_mux_runtime "${CMAKE_CURRENT_SOURCE_DIR}/../work/bf3_mux_flip/bf3_mux_runtime.c")
+set(output_file_bf3_mux_runtime "bf3_mux_runtime")
+
+add_custom_command(
+  OUTPUT ${output_file_bf3_mux_runtime}
+  COMMAND dpu-upmem-dpurte-clang ${input_file_bf3_mux_runtime} -o ${output_file_bf3_mux_runtime}
+  DEPENDS ${input_file_bf3_mux_runtime}
+)
+
 set(input_file_polling_test "${CMAKE_CURRENT_SOURCE_DIR}/polling_test.c")
 set(output_file_polling_test "polling_test")
 
@@ -130,5 +166,5 @@ add_custom_command(
 add_custom_target(
   generate_output_files
   ALL
-  DEPENDS ${output_file_bf_checksum} ${output_file_checksum} ${output_file_polling_test}
+  DEPENDS ${output_file_bf_checksum} ${output_file_bf3_mux_runtime} ${output_file_checksum} ${output_file_polling_test}
 )

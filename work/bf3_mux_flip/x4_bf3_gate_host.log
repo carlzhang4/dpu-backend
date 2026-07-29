@@ -1,0 +1,30 @@
+Starting X4-runtime-window iterations=1 pair=0 timeout_us=500000
+DPU kernel booted through low-level dpu_boot_rank; no async polling job was registered
+runtime pattern symbol=0x8000000 logical=0x0 remote=0x7f6640000000
+runtime WRAM gate symbol=0x100 word=0x40 (released directly by BF3 CI)
+[INFO][09:40:40.011][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][09:40:40.016][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][09:40:40.016][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][09:40:40.016][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][09:40:40.016][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][09:40:40.016][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][09:40:40.016][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][09:40:40.061][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7f6640000000, len:268435456, flag:1048583
+[INFO][09:40:40.061][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x119a4790: pd:0x119a46c0, addr:0x7f6640000000, len:268435456, umem_id:1, mkey:2096742
+[INFO][09:40:40.061][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+PIM1 export addr=0x7f6640000000 size=268435456 vhca=0 mkey=2096742 port=6677
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 6677
+[INFO][09:41:20.543][connection_manager.cpp:34][socket_init]                                        connected by 1
+[DEBUG][09:41:20.543][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+CI ownership handoff host->BF3 next_color=0x00 command=0x7f6640020000 response=0x7f6640028000
+CI ownership handoff BF3->host BF3_next_color=0x00 host_next_color=0x00
+host SDK independently verified DPU-side mux on 64 DPUs
+runtime heartbeat active on 64 DPUs
+X4 pattern observed on 16/16 target DPUs
+BF3 stats completed=1 ci_commands=200 reads=401 writes=201 decode=0 collision=0 elapsed_ms=1.037 p50_us=0.000 p99_us=0.000 max_us=0.000
+X4-runtime-window PASS
+[INFO][09:41:20.620][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x119a4790
