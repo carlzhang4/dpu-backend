@@ -1,8 +1,14 @@
 # PIMNIC 控制面库化方案——组织架构与接口设计
 
-日期:2026-07-30 ｜ 状态:提案(不改代码,仅方案)
+日期:2026-07-30(2026-07-31 增补范式层)｜ 状态:提案(不改代码,仅方案)
 输入:`design.tex` §3(PIM-Direct 数据面 / PIM-Centric 控制面 / 编程范式)、
 `docs/pimnic-control-plane-impl-spec.md`(v2 契约)、已通过全部验收矩阵(S5–S7,6/6 双端 PASS)的 demo 代码。
+
+> **⚠️ 贯穿全文的硬性规则:不改动任何原有应用源码。**
+> `benchmarks/kvstore/`、`benchmarks/SEL/`、`benchmarks/GNN/` 下的现有文件一律不动——不编辑、
+> 不重命名、不删除,也不改它们的 CMakeLists。所有新代码进新目录(`libpimnic/`、
+> `libpimnic/apps/`),原文件仅作"复制来源"与等价性对拍的**基准**。原版必须始终可编译可运行,
+> 否则对拍就失去了参照物。详见 `docs/pimnic-app-transfer-api.md` §9。
 
 ---
 
@@ -15,7 +21,9 @@
 
 **范围内**:控制面(环形缓冲协议、CI/mux 窗口、gate、组管理、握手)、数据面软件等价物
 (地址翻译 = 软件 PTLB、交织重排 = 软件 Data Rearranger)、初始化/回收全流程。
-**范围外(见 §8)**:design.tex §3.3 的张量拓扑/集合通信原语层、真实网络收发路径、硬件化。
+**范围内(2026-07-31 增补)**:design.tex §3.3 的张量拓扑与集合通信原语层——即 §5.5 的范式层,
+三个 benchmark 经它接上控制面(L6 阶段,完整规格见 `docs/pimnic-app-transfer-api.md`)。
+**范围外**:真实网络收发路径(现由 BF3 本地生成流量模拟)、硬件化、细粒度 stride 交织重排。
 
 ## 2. 现状盘点:demo 里已经存在哪些"事实上的模块"
 
@@ -80,8 +88,19 @@ libpimnic/
 ├── examples/
 │   ├── runtime_host.cpp        # 现 bf_pimnic_runtime_host 瘦身为库的用户
 │   └── runtime_pe.c            # 现 bf_pimnic_runtime.c 瘦身为库的用户
+├── paradigm/                   # ★范式层(§5.5):PE 侧 WQE/CQ 封装 + host 侧拓扑/集合注册
+│   ├── include/pimnic/paradigm/{pe_paradigm.h, collective.h, preload.h}
+│   └── {pe_paradigm.c, collective_host.cpp, preload.cpp}
+├── apps/                       # ★三应用接入,全部新增,不触碰 benchmarks/
+│   ├── common/{app_harness, golden}   # 共用部署流程 + 对拍用纯软件金标
+│   ├── kvstore/{host_main.cpp, pe_kernel.c, README.md}
+│   ├── select/ {host_main.cpp, pe_kernel.c, README.md}
+│   └── gnn/    {host_main.cpp, pe_kernel.c, README.md}
 └── tests/                      # test_pattern、验收矩阵脚本挪此
 ```
+
+`apps/` 下每个 README 必须声明:源自哪个原文件、改了什么、**原文件未被修改**。
+`apps/` 用独立 CMake target,新旧两套可执行文件并存,对拍脚本同时调用二者。
 
 ### 4.2 BF3 repo(libr)
 
@@ -193,6 +212,68 @@ void pimnic_tx_commit(struct pimnic_pe *pe, uint32_t length);
 void pimnic_pe_set_error(struct pimnic_pe *pe, uint8_t code, uint32_t offset);
 ```
 
+#### 5.3.1 逐函数语义(行号对应 demo `bf_pimnic_runtime.c`)
+
+- **`pimnic_pe_init`**:清零库计数(rx/tx total、heartbeat、error 状态),WRAM 影子指针
+  rx_head/tx_tail 置 0(环内容已由 host `pe_set_load` 清零,两侧从同一原点出发),最后执行
+  `gate_ack = gate_command`(现 L161)。这一步是启动握手的关键:内核启动瞬间 gate_command
+  可能已被 NIC 写过,不回 ack 则 NIC 侧 `gate_pause` 会永久等待;"ack=command"即
+  "我已看到你的最新指令"。
+
+- **`pimnic_pe_poll`**(每轮循环第一件事;现 main L163–197 的骨架):
+  1. 查 `stop` 字(host 停机时写入)→ 返回负值,应用退出主循环;
+  2. 读 `gate_command`(NIC 经 CI WRAM 写更新):**偶数 = 关窗请求** → 回写 `gate_ack`、
+     心跳自增后立即返回 0,期间绝不触碰 MRAM——关窗意味着 mux 已经/即将翻到 host 侧,
+     此时访问 MRAM 就是 DDR 总线冲突(collision)。这是互斥协议在 PE 侧的全部体现:
+     应用只要遵守"poll 没返回 >0 就不碰环",天然安全;
+  3. 开窗(奇数):心跳自增并 publish 一次 pub 字(rx_head/tx_tail/heartbeat/error 打包为
+     单个 64 位 MRAM 写,现 `publish()` L124)。**先发布再消费**:让 NIC 在环空时也能观测
+     活性与排空进度(S5 看门狗修复依赖的正是这个 head 快照);
+  4. 探测 RX:按 8B 对齐读描述符对(MRAM DMA 8B 粒度,故成对读,现 L175–182),取本
+     slot 的 4B 描述符,generation 位与 `generation_for_total(rx_total)` 比对——一致即
+     "有新消息"返回 >0,不一致返回 0(环空)。
+
+- **`pimnic_rx_peek`**:把 poll 命中的描述符解码为 `{mram_offset, length}` 并做契约校验
+  (现 L185–197):长度在 [PAYLOAD_MIN, PAYLOAD_MAX] 且 offset+length 不越 RX 数据环;
+  违约即内部记 error 1 并跳过该 slot。**返回 MRAM 偏移而非代拷贝**:应用(如 KVStore)按
+  自己的 WRAM 预算分块 `mram_read`、与计算精细交错;库若代拷贝,WRAM 占用与 DMA 次数翻倍。
+
+- **`pimnic_rx_release`**:rx_head 前进一格(mod 256)、rx_total 自增(每 256 条翻一次
+  generation 极性)、publish。与 peek 分离的原因:echo 类应用必须先确保 TX slot 到手再释放
+  RX——publish 出去的新 head 是 NIC min-head 背压的输入,提前释放意味着 NIC 可能覆写
+  还在被读的 payload。
+
+- **`pimnic_tx_reserve`**:读 MRAM 的 `nic_pub`(现 L199–205),取 NIC 消费头
+  tx_desc_head,`ring_full(head, tx_tail)` 判满(留一空格纪律)。满则返回 EAGAIN,应用
+  整轮重来(先验 TX 有位、再消费 RX,与 demo 顺序一致)。成功返回
+  `tx_mram_offset = tx_tail × TX_DATA_UNIT_BYTES`:TX 数据 slot 定长 striding,slot 地址是
+  tail 的纯函数——这正是 NIC 收割时校验的 order 契约。
+
+- **`pimnic_tx_commit`**:应用把 payload `mram_write` 进 reserved 偏移后调用。库做三件事:
+  读-改-写 8B 描述符对(保住邻居 entry,现 L241–257);打包描述符(generation 按 tx_total、
+  off64、length);tx_tail/tx_total 前进。**数据先于描述符、描述符先于 pub**:pub 的 64 位
+  单写是唯一发布点,NIC 看到 tx_desc_tail 越过其 head 才会去读描述符。commit 与 release
+  各自触发 publish 还是由库合并成一次(demo 是轮末一次,L323)属实现细节,契约只要求
+  "head/tail 状态动完之后 pub 才前进"。
+
+- **`pimnic_pe_set_error`**:首错粘滞(code + first_error_offset 只记第一次),code 随下次
+  publish 进 pub 的 error 字段。NIC 侧把非零 error 当致命(当场中止 run)——这是应用的
+  **断言通道**,不是日志通道。
+
+应用主循环形状(echo 类,即 L5 冒烟样例的骨架):
+
+```c
+while ((r = pimnic_pe_poll(pe)) >= 0) {
+    if (r == 0) continue;                        /* 关窗或环空 */
+    pimnic_rx_peek(pe, &v);
+    if (pimnic_tx_reserve(pe, v.length, &tx_off) == -EAGAIN)
+        continue;                                /* TX 满:RX 不释放,整轮重来 */
+    /* mram_read(v.mram_offset…) → 应用计算 → mram_write(tx_off…) */
+    pimnic_tx_commit(pe, v.length);
+    pimnic_rx_release(pe);
+}
+```
+
 约束照抄现状并写入头文件注释:仅 tasklet 0 运行库(`me()!=0` 直接 return 是应用模板的一部分);
 `publish` 把 desc/data 两对指针捆绑发布(现 `publish()` 的简化:data head 恒等 desc head,
 data tail 恒等 desc tail——单位制见 ABI,保持 v2 契约不变)。多 tasklet 化列入开放问题。
@@ -265,6 +346,114 @@ class PimnicSession {
 };
 ```
 
+#### 5.4.1 dma —— `PimnicDmaChannel`(现 create_dma_qp/initialize_dma_qp/CiEngine::copy)
+
+- `open`:建独立 CQ + **自连 RC QP**(loopback 到自身),探测 mlx5 MMO memcpy 单次长度
+  上限,准备本地弹跳缓冲(write_line/read_line)。自连的原因:`mlx5dv_wr_memcpy` 是
+  "源 mkey → 目的 mkey"的 DMA 引擎动词,不走网络;远端 rank devdax 经 vhca 交换得到的
+  crossing mkey 寻址。
+- `write(remote, src, n)`:先做**导出窗口越界校验**(现 range_is_within——地址翻译层的
+  bug 在这里被拦下,而不是写花 host 内存);memcpy 进弹跳线 + 全屏障;下发 memcpy WQE 并
+  **同步**轮询 CQE 才返回。同步是刻意的:控制面操作是延迟型不是带宽型,且"数据先于
+  描述符"的顺序依赖上一笔完成后再发下一笔。
+- `read`:反向同理(CQE 到达后屏障、再从 read_line 拷出)。
+- `stats`:DMA 读写次数/字节计数,queue 层按组归账(现 group_dma_ops)。
+
+#### 5.4.2 xlate —— 软件 PTLB + Data Rearranger(现 mram_addr.* + interleave/group_transfer)
+
+- `group_base_offset(group, logical_off)`:**唯一的"PE 逻辑地址 → rank 物理偏移"翻译点**,
+  一条乘加、无查表(UPMEM bank 交织下,组的 16 lane 共享一个按 1KB 单元 striding 的连续
+  物理窗口)。上层全部以 DPU 内逻辑偏移思考,只有这里知道 rank 布局——换硬件拓扑只改此处。
+- `interleave/deinterleave`:16 路 per-lane 字节流 ↔ rank 物理字节序。规则(现 bench
+  L721):每 8B 逻辑单元内,lane l 的第 b 字节落在
+  `unit×1024 + (l/8)×64 + b×8 + (l%8)`——半组选 64B 半块、字节序号选列、lane-in-half
+  选字节。O(n) 纯 CPU 变换,是将来 SIMD 化的封闭点,接口不变。
+- `PimnicGroupIo::read_u64/write_u64`:**64B 一笔 DMA 覆盖全组**的原语——一个物理单元的
+  首 64B 恰好装下 16 lane 各 8B(现 pack/unpack_lane_u64),pe_pub/nic_pub/描述符对的
+  读写全走它;即论文"single DMA read carries 16 pointers"的软件实现。
+- `read_span/write_span`(现 group_transfer):payload 级搬运,内部做**连续 run 合并**:
+  逐 8B 单元算物理地址,物理连续段合成一笔 DMA——常态下(环区物理连续)整组 payload
+  一笔完成,而非每单元一笔。
+
+#### 5.4.3 ci —— `PimnicCiEngine`(现 CiEngine 原样收编)
+
+所有操作底层同构:向 rank 的 CI 命令线(64B)DMA 写一帧,轮询响应线直到色协议确认。
+
+- **帧编码与色协议**:8 条 CI 的 64 位命令字节交织进一条 64B 线(现 interleave_ci_words);
+  每发一帧期望色翻转(next_color ^= ci_mask),响应按 per-CI 色字节 popcount 判新旧
+  (≥5/≤3),离理想值(0/8)的距离分类 decode fault(1 位差)与 **collision fault
+  (2 位差)——后者即"窗口期间 host 侧流量碰了 DDR 总线",是整个 mux 方案健康度的头号
+  观测量**。帧编码器(select_dpu_frame/wram_*_frame 等)拆成纯函数并锁定单测(迁移 L1),
+  这些魔数是全库最脆的资产。
+- **两级缓存**:`ensure_structure`(指令选择帧)与 `select_dpu` 都带 memo。稳态 ~2600 CI
+  命令/消息,S8 优化的主战场就是提高这两个缓存的跨窗口存活率,接口不动。
+- `mux_set_family(family, host_side)`:对 family 的 4 个 DPU 逐个走 dma_ctrl 寄存器序列
+  (0x80/0x81/0x82/0x84 置值 + 0xff=0x02 提交),再读回状态验证(host 侧期望 0x00、DPU 侧
+  0x03,重试 ≤100 次,0x04 位计 collision)。**pair 纪律在内部强制**:一对 DPU 必翻不可
+  分割(硬约束 2);两个方向的 pair 顺序不同(host 侧先低后高、DPU 侧反之),照抄 demo
+  实测安全的顺序。
+- `gate_pause(family)`:取下一个**偶数** gate 命令号,CI WRAM 写进 family 全部 4 DPU 的
+  gate_command,轮读 gate_ack 直到全员等于命令号(超时 → GATE_TIMEOUT)。**返回成功 =
+  该 family 所有 PE 已承诺不再碰 MRAM**,这是随后翻 mux、DMA 环区的安全前提。
+  `gate_resume`:下一个**奇数**号,只写不等 ack(PE 下轮 poll 自会看到)。gate 走 CI WRAM
+  通道,与 MRAM mux 状态无关,窗口内外都可达。
+- `wram_write/read`:单 DPU 单 32 位字(select_dpu + structure + 帧)。gate 之外也是
+  运行期唯一的带外通道(观测 heartbeat 等)——慎用,每次都是完整 CI 命令开销。
+- `next_color()`:交还 host 时的对账接口——host `pimnic_handoff_reclaim` 用 ci_get_color
+  核对,不一致说明所有权交接期间发生过越权 CI 操作。
+
+#### 5.4.4 queue —— `PimnicGroupQueue`(现 GroupState + process_group 拆分)
+
+每组一个实例,持有协议状态(rx_tail/tx_head/两个 total/描述符对影子),**只允许在窗口回调
+内调用**:
+
+- 窗口进入时先做一次 pe_pub 64B 组读(全组 16 lane 的指针/心跳/错误一笔到手),本窗口内
+  判定都基于这份快照;任一 lane 的 pub error 非零 → 当场中止 run(PE 断言通道)。
+- `rx_inject`:背压判定 = **min-head**:任何一个 lane 的 rx_desc_head 令 slot 显满,整组
+  都不注入(现 all_rx_slots_available)。这不是保守,是契约:payload 按组交织,16 lane
+  必须锁步前进,最慢 PE 背压全组(design.tex 组粒度语义)。通过后:interleave payload →
+  一笔组写数据(tail×unit 定长 slot)→ 生成 4B 描述符(generation 取自 rx_total)合入
+  8B 对**影子**(影子免掉读-改-写 DMA:NIC 是描述符唯一写者,影子即真相)→ 组写描述符对
+  → tail/total 前进。**数据严格先于描述符**:描述符 generation 翻转是 PE 侧唯一的提交
+  信号。环满返回 EAGAIN,调用方下个窗口再试。
+- `tx_harvest`:pub 快照里**全组** tx_desc_tail 都越过 head 才收割(锁步同 RX);逐 slot:
+  组读描述符对 → 校验 order 契约(generation / length==约定 / offset==head×unit,抓 PE 侧
+  乱序)→ 组读数据 → deinterleave → 逐 lane 回调 on_message → 组写 nic_pub 前进 head
+  (这笔写就是对 PE `tx_reserve` 判满的解锁)。batch 上限防单组独占窗口。
+- `progressed()`:本窗口注入过、收割过、**或任一 lane 的 rx_desc_head 相对上窗口快照前进
+  过**(排空阶段的进展,即 s5_rx_slow 看门狗误判修复的 last_rx_head 逻辑)——调度器以此
+  喂看门狗。
+- `pe_pubs()`:窗口快照只读暴露(心跳/错误码观测),不产生额外 DMA。
+
+#### 5.4.5 sched —— `PimnicScheduler`(现 run_control_plane 骨架)
+
+库中**唯一有权触碰 mux/gate 的地方**。稳态每个 family 窗口的固定序列:
+
+```
+pause_family(等 gate ack 齐)→ mux→host 侧 → 逐 active 未完成组回调 on_window
+→ mux→DPU 侧 → resume_family
+```
+
+顺序不可重排:先 gate 后 mux,保证 PE 不会在半翻的 mux 上访问 MRAM;先还 mux 再 resume,
+保证 PE 恢复时总线已在自己侧。窗口之间:消费组控制命令(经 session 非阻塞轮询,触发
+`on_group_control` 并更新 active mask——论文 on-NIC active table 的软件版)、poll_interval
+节流、无进展看门狗(`max(5s, timeout×20k)`,以 `progressed()` 喂狗,超时置 TIMEOUT 中止)。
+`request_stop()` 信号安全:当前窗口收尾、pause 全部 family(环区留在静默状态)、统计
+(elapsed/percentile)由库填写后返回。
+
+回调契约:`on_window` 返回负值中止 run;回调期间 family 处于 pause——**PE 在停等,回调里
+不许长时间阻塞,也不许自己发 CI**;跨窗口的应用状态放应用自己的结构里。
+
+#### 5.4.6 session —— `PimnicSession`(现 main 的 socket/hello/config/result 段)
+
+- `connect`:TCP 连 host 服务端,hello 携带 ABI version(不匹配即拒),交换 vhca id/mkey
+  建 crossing MR——dma 层的 remote_mkey 由此而来。
+- `receive_config`:收 `pimnic_runtime_config` 并做几何/模式/掩码合法性校验(现
+  validate_config);`app_config` 透传区原样交给应用。
+- `poll_group_control`:非阻塞;调度器每轮调用,取组启停命令。
+- `send_result`:回传统计;**库层保证 elapsed_ns 等字段在错误路径也已填写**(把 2026-07-30
+  报告 6.3 的兜底修复固化为接口契约)。
+
 **为什么 BF3 侧选回调、DPU 侧选轮询 API**:BF3 侧"何时能访问 MRAM"由 mux 窗口硬约束决定
 (pair line 必须成对切换、窗口外访问即 collision),把窗口机 owned by 库、应用逻辑装进
 `on_window` 是唯一不易误用的形状;DPU 侧不存在这种全局约束,gate 检查一个函数就能封住,
@@ -274,6 +463,54 @@ class PimnicSession {
 `CiMuxProvider`(现行:BF3 经 CI 帧自翻,S4 方案 A,已被矩阵证明);保留
 `HostClockMuxProvider` 桩(impl-spec §2.2.7 时钟发生器 + seqlock 窗口页,S4 方案 B),
 将来 host 侧代理如需启用不动上层。
+
+### 5.5 范式层(应用接口)
+
+对应 design.tex §3.3,是三个 benchmark(KVStore/SELECT/GNN)真正调用的那一层。
+**完整规格见 `docs/pimnic-app-transfer-api.md`**,此处只记接口摘要与它为何这样切。
+
+核心主张:**集合通信 = NIC 在"TX 收割"与"RX 注入"之间插入的一条重分发规则**。控制面已经在做
+收割与注入两件事,把它们之间接上规则表就得到四个原语,不引入任何新机制:
+
+| 原语 | 规则 |
+|---|---|
+| BROADCAST | root 的一条 TX → 注入该维全体 PE 的 RX |
+| SCATTER | root 的一条 TX → 切 D 段 → 第 i 段注入第 i 个 PE |
+| GATHER | 收割该维全部 TX → 按维内序拼接 → 注入 root |
+| REDUCE | 同 GATHER 的搬运量注入 root,**纯搬运不做算术** |
+| `writeback=1` | 结果再沿同维 BROADCAST 回注 ⇒ All-Gather / All-Reduce |
+
+```c
+/* PE 侧(paradigm/pe_paradigm.h,在 DPU 上编译):design.tex Phase II 的动词 */
+int  pimnic_post_remote_send   (struct pimnic_pe *pe, uint32_t tag,
+                                uint32_t mram_src_off, uint32_t len);  /* = tx_reserve+写+commit */
+int  pimnic_post_remote_receive(struct pimnic_pe *pe, uint32_t tag, uint32_t max_len);
+int  pimnic_poll_cq            (struct pimnic_pe *pe, pimnic_cqe_t *cqe); /* = pe_poll+rx_peek */
+void pimnic_recv_release       (struct pimnic_pe *pe);                    /* = rx_release */
+int  pimnic_collective_enter   (struct pimnic_pe *pe, uint32_t collective_id,
+                                uint32_t mram_src_off, uint32_t len);
+
+/* NIC 侧(BF3 repo,建在 sched/queue 之上) */
+class PimnicCollectiveEngine {
+    int  define  (const PimnicCollectiveSpec &spec, uint32_t *collective_id);
+    int  progress(PimnicGroupQueue &q, uint32_t group);  /* 窗口内推进,可跨窗口重入 */
+    bool complete(uint32_t collective_id) const;
+};
+
+/* host 侧:仅部署期,数据期完全退出 */
+int pimnic_collective_define(pimnic_pe_set_t *s, const pimnic_collective_spec_t *spec,
+                             uint32_t *collective_id);
+int pimnic_preload(pimnic_pe_set_t *s, const char *symbol, uint32_t offset,
+                   const void *host_src, uint32_t bytes_per_pe, const pimnic_dim_op_t dim[]);
+```
+
+**规则表为何必须在 NIC 侧**:PE 之间没有直接通信手段,任何跨 PE 的重分发都必然经过 NIC;
+且只有 NIC 拥有全局视图与 mux 窗口控制权。这不是设计偏好,是硬约束的必然结果——也正因如此,
+PE 侧 API 才能小到只有五个函数,且 PE 不需要知道自己的拓扑坐标或对端是谁。
+
+**范式层不绕过控制面契约**:上面每个 PE 侧动词都直接落到 §5.3 的环 API,只是把"环指针"的
+说法换成 design.tex 的"WQE/CQ"措辞。`pimnic_preload` 是唯一保留的 host 侧数据搬运,只在
+部署期装载(SELECT 表分片、GNN 邻接/权重),不计入测量路径。
 
 ## 6. 与 design.tex 的概念对照(写论文时可直接引用)
 
@@ -286,7 +523,10 @@ class PimnicSession {
 | TX path(NIC 轮询、64B 批量读指针) | `PimnicGroupQueue::tx_harvest` | pe_pub 64B 单读覆盖全组,即论文"single DMA read carries 16 pointers" |
 | 只轮询 active PE-group | `active_group_mask` + `on_group_control` | 即论文的 on-NIC active table |
 | 持久内核 | `libpimnic_dpu` + `pimnic_pe_set_boot` | gate 机制是模拟平台特有,论文不表 |
-| WQE/CQ、张量拓扑、stride 原语 | 未实现,见 §8 | 将来作为 `queue` 之上的 paradigm 层 |
+| WQE/CQ(`post_remote_send`/`poll_cq`) | 范式层 §5.5 的 PE 侧动词 | 直接落到 §5.3 的 TX/RX 环 API |
+| 张量拓扑 [D0..Dn] + 每维绑原语 | `pimnic_topology_t` + `PimnicCollectiveSpec` | GNN 的 np×np 网格与逐层换轴即此 |
+| Broadcast/Scatter/Gather/Reduce | NIC 侧规则表(收割→重分发→注入) | REDUCE 为纯搬运,不做算术 |
+| stride 细粒度交织 | **不实现**(只做块粒度) | 三应用现状全为块粒度;不做软件重排 |
 
 ## 7. ABI 同步与构建
 
@@ -309,20 +549,37 @@ class PimnicSession {
 | L3 | host:四模块成库,runtime_host 缩为 ~200 行 | CI 交接顺序敏感,照抄现序 |
 | L4 | DPU:`pe.c` 成库,runtime_pe 缩为 pattern 校验应用 | WRAM 预算(现 cache 1KB + 库影子状态)需复核 map 文件 |
 | L5 | 新写最小 echo 应用(三侧各 <150 行)作为 API 冒烟样例 + 本文档转正式 README | — |
+| L6 | **范式层 + 三应用接入**(§5.5):PE 侧 WQE/CQ 封装 → NIC 侧规则表 → `apps/` 下三应用 | 见下 |
 
 顺序先 BF3 后 host/DPU:BF3 侧体量最大、复用需求最急(repo 里 KVStore/GNN bench 都在等)。
+
+L6 细分为 P0–P6,验证分四层(详见 `docs/pimnic-app-transfer-api.md` §8、§10):
+
+- **V0 机制层**:单 PE 回环逐字节校验;`{4 原语}×{writeback 0/1}` 对拍 host 侧纯软件金标;
+  背压与变长边界(count=0 / count=max)
+- **V1 回归层**:已验收 6 用例矩阵必须保持双端 PASS,每次范式层改动后重跑 `run_matrix_v2.sh`
+- **V2 等价层(首要判据)**:同一输入下 `apps/` 新版与 `benchmarks/` 原版输出逐字节相等
+- **V3 性能层**:host 在数据期占用≈0、端到端时延/吞吐对比、稳态 CI 命令数不显著上升
+
+接入顺序 KVStore → SELECT → GNN(请求响应最贴合 → 变长契约 → 集合通信最全)。
+**再次强调:全部改造代码进 `libpimnic/apps/`,`benchmarks/` 下原文件一律不动**——原版是 V2
+对拍的基准,改了它等价性就无从谈起。
 
 ## 9. 非目标与开放问题
 
 1. **多 tasklet DPU API**:现契约单 tasklet。多 tasklet 需要 pub 发布的原子性设计(64 位单写今天够用)。
 2. **真实网络路径**:bench 在 BF3 本地生成流量;接真实 RX(网络→MRAM)需要 libr 收包路径与
    `rx_inject` 对接,属数据面下一阶段。
-3. **每 PE 变长消息**:现组粒度等长 + padding(design.tex 脚注同此);变长需要 desc 单位重设计。
+3. **每 PE 变长消息**:现组粒度等长 + padding(design.tex 脚注同此)。范式层用"消息头带 count
+   + 定长 padding 体"表达变长(pad-to-max),真正的 per-PE 变长需要 desc 单位重设计,暂不做。
 4. **S8 性能**:稳态 ~2600 CI 命令/消息(mux 翻转 + gate 占大头)。库化后优化点集中在
    `CiEngine`(窗口合并、gate 写批量化、`ensure_structure` 缓存跨窗口保持)与调度策略
    (窗口停留时间自适应),接口不受影响——这正是分层的目的。
 5. **组几何常量**(16 lane/4 组/2 family)与 UPMEM rank 拓扑绑定,暂硬编码于 ABI;
    换代硬件时随 ABI version 升级。
+6. **范式层遗留问题**(详见 `docs/pimnic-app-transfer-api.md` §11):一次集合跨 mux 窗口的完成
+   语义、PE 侧 WRAM 预算(范式层状态叠加在控制面影子状态之上,GNN 内核最紧)、`tag` 是否需要
+   乱序匹配队列、`post_remote_receive` 是否保留。
 
 ## 附:demo → 库 符号迁移速查
 
