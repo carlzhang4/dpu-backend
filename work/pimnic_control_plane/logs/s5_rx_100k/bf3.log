@@ -1,0 +1,98 @@
+[INFO][11:12:22.292][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][11:12:22.292][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 1
+[INFO][11:12:22.292][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 192.168.100.1
+[DEBUG][11:12:23.304][connection_manager.cpp:70][exchange_vhca_data]                                exchange vhca data 1 resources
+[INFO][11:12:23.305][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_2
+[INFO][11:12:23.309][libr.cpp:152][roce_init]                                                       Use devx context 0
+
+[INFO][11:12:23.309][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][11:12:23.309][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][11:12:23.309][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][11:12:23.309][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][11:12:23.309][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][11:12:23.309][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][11:12:23.310][devx_mr.cpp:131][devx_create_alias_memory_region]                              create_alias_memory_region mkey 341504, pdn:20
+[INFO][11:12:23.310][devx_mr.cpp:315][devx_create_crossing_mr]                                      create crossing mr 0xaaaabf126870: pd:0xaaaabf1267c0, addr:0x7f8940000000, len:536870912, vhca_id:0, other_mkey:2096742, mkey:341504
+[INFO][11:12:23.355][pimnic_runtime_bench.cpp:1562][main]                                           PIM-centric BF3 control plane ready ranks=1 groups=4 payload=1024 messages/group=100000 batch=128 mode=rx-only
+
+[INFO][11:12:31.638][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=10006 echoed=0 groups_done=0/4 ci=1166944 collision=0
+
+[INFO][11:12:40.697][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=20006 echoed=0 groups_done=0/4 ci=2486672 collision=0
+
+[INFO][11:12:49.756][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=30006 echoed=0 groups_done=0/4 ci=3806400 collision=0
+
+[INFO][11:12:58.828][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=40006 echoed=0 groups_done=0/4 ci=5119840 collision=0
+
+[INFO][11:13:07.897][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=50006 echoed=0 groups_done=0/4 ci=6435152 collision=0
+
+[INFO][11:13:16.965][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=60013 echoed=0 groups_done=0/4 ci=7756096 collision=0
+
+[INFO][11:13:26.237][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=70019 echoed=0 groups_done=0/4 ci=9110032 collision=0
+
+[INFO][11:13:35.297][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=80019 echoed=0 groups_done=0/4 ci=10429888 collision=0
+
+[INFO][11:13:44.358][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=90019 echoed=0 groups_done=0/4 ci=11747952 collision=0
+
+[INFO][11:13:53.416][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=100019 echoed=0 groups_done=0/4 ci=13067792 collision=0
+
+[INFO][11:14:02.476][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=110019 echoed=0 groups_done=0/4 ci=14384560 collision=0
+
+[INFO][11:14:11.529][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=120019 echoed=0 groups_done=0/4 ci=15704336 collision=0
+
+[INFO][11:14:20.584][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=130019 echoed=0 groups_done=0/4 ci=17024176 collision=0
+
+[INFO][11:14:29.639][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=140019 echoed=0 groups_done=0/4 ci=18344016 collision=0
+
+[INFO][11:14:38.694][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=150019 echoed=0 groups_done=0/4 ci=19663888 collision=0
+
+[INFO][11:14:47.755][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=160025 echoed=0 groups_done=0/4 ci=20984928 collision=0
+
+[INFO][11:14:56.808][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=170025 echoed=0 groups_done=0/4 ci=22304688 collision=0
+
+[INFO][11:15:06.333][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=180025 echoed=0 groups_done=0/4 ci=23701296 collision=0
+
+[INFO][11:15:16.087][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=190025 echoed=0 groups_done=0/4 ci=25141168 collision=0
+
+[INFO][11:15:25.624][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=200025 echoed=0 groups_done=0/4 ci=26543904 collision=0
+
+[INFO][11:15:35.377][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=210027 echoed=0 groups_done=0/4 ci=27983872 collision=0
+
+[INFO][11:15:45.123][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=220030 echoed=0 groups_done=0/4 ci=29422368 collision=0
+
+[INFO][11:15:54.176][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=230030 echoed=0 groups_done=0/4 ci=30742096 collision=0
+
+[INFO][11:16:03.269][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=240034 echoed=0 groups_done=0/4 ci=32057728 collision=0
+
+[INFO][11:16:12.321][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=250034 echoed=0 groups_done=0/4 ci=33377552 collision=0
+
+[INFO][11:16:21.374][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=260034 echoed=0 groups_done=0/4 ci=34697376 collision=0
+
+[INFO][11:16:30.427][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=270034 echoed=0 groups_done=0/4 ci=36017184 collision=0
+
+[INFO][11:16:39.480][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=280034 echoed=0 groups_done=0/4 ci=37337120 collision=0
+
+[INFO][11:16:48.532][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=290034 echoed=0 groups_done=0/4 ci=38657072 collision=0
+
+[INFO][11:16:57.583][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=300034 echoed=0 groups_done=0/4 ci=39977008 collision=0
+
+[INFO][11:17:06.639][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=310034 echoed=0 groups_done=0/4 ci=41293920 collision=0
+
+[INFO][11:17:15.694][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=320034 echoed=0 groups_done=0/4 ci=42613776 collision=0
+
+[INFO][11:17:24.748][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=330034 echoed=0 groups_done=0/4 ci=43933504 collision=0
+
+[INFO][11:17:33.803][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=340034 echoed=0 groups_done=0/4 ci=45253312 collision=0
+
+[INFO][11:17:42.854][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=350034 echoed=0 groups_done=0/4 ci=46573200 collision=0
+
+[INFO][11:17:51.906][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=360034 echoed=0 groups_done=0/4 ci=47893040 collision=0
+
+[INFO][11:18:00.968][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=370041 echoed=0 groups_done=0/4 ci=49213984 collision=0
+
+[INFO][11:18:10.039][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=380041 echoed=0 groups_done=0/4 ci=50525456 collision=0
+
+[INFO][11:18:19.092][pimnic_runtime_bench.cpp:1397][run_control_plane]                              PIM-centric progress injected=390041 echoed=0 groups_done=0/4 ci=51845344 collision=0
+
+[INFO][11:18:28.972][pimnic_runtime_bench.cpp:1582][main]                                           PIM-centric BF3 PASS status=0 injected=400000 echoed=0 pattern=0 order=0 CI=53326848 DMA-R=106876966 DMA-W=54126848 collision=0 elapsed_s=365.599
+
+[INFO][11:18:28.985][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0xaaaabf126870

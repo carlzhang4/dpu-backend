@@ -1,0 +1,27 @@
+PIM-centric control plane mode=rx-only dpus=64 payload=1024 messages/group=1000 batch=128 poll_us=10
+[INFO][10:40:06.137][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][10:40:06.141][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][10:40:06.141][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][10:40:06.141][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][10:40:06.141][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][10:40:06.141][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][10:40:06.141][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][10:40:06.235][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7fc640000000, len:536870912, flag:7
+[INFO][10:40:06.235][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x3c38d60: pd:0x3c38cd0, addr:0x7fc640000000, len:536870912, umem_id:1, mkey:2096742
+[INFO][10:40:06.235][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+export rank0 base=0x7fc640000000 size=536870912 mkey=2096742
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 6707
+[INFO][10:40:30.370][connection_manager.cpp:34][socket_init]                                        connected by 1
+[DEBUG][10:40:30.370][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+persistent kernels booted with dpu_boot_rank; no async polling job registered
+CI ownership handoff host->BF3 ranks=1 groups=4; host entering blocking result wait
+rank0 BF3_next_color=0x00 host_next_color=0x00
+DPU validation checked=64 failed=0
+BF3 stats injected=4000 echoed=0 pattern_errors=0 order_errors=0 dma_reads=20667743 dma_writes=10340432 read_bytes=1322919424 write_bytes=727323648 ci_commands=10332432 collision=0 controls=0 rx_wraps=12 tx_wraps=0 elapsed_s=54.273 rtt_p50_us=0.000 rtt_p99_us=0.000 poll_p50_us=54265.370 poll_p99_us=107866.921
+g_ci_data_ops=0 (steady-state host data-path CI ops)
+PIM-centric-control-plane PASS
+[INFO][10:41:24.757][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x3c38d60
