@@ -4,32 +4,28 @@
 #include <stdint.h>
 #include <vector>
 
-struct PimnicKvEntry {
-	uint32_t key;
-	uint32_t value;
-	bool valid;
-};
+/* CPU model of the original benchmarks/kvstore GET contract
+ * (kvstore_pim_multidpu.cpp + src/kvstore_get_device.c): a 32 MiB
+ * identity table (key[i] = value[i] = i), SipHash-2-4 bucket index with
+ * the fixed 0x00..0x0F key, and no key comparison. */
+#define PIMNIC_KV_TOTAL_ENTRIES (32ull * 1024 * 1024 / 16)
 
 struct PimnicKvRequest {
-	uint32_t key;
-	uint32_t request_id;
+	uint64_t key;
 };
 
 struct PimnicKvResponse {
-	uint32_t key;
-	uint32_t value;
-	uint32_t found;
-	uint32_t request_id;
+	uint64_t value;
 
 	bool operator==(const PimnicKvResponse &other) const
 	{
-		return key == other.key && value == other.value &&
-		       found == other.found && request_id == other.request_id;
+		return value == other.value;
 	}
 };
 
+uint64_t pimnic_kvstore_index(uint64_t key);
+
 std::vector<PimnicKvResponse>
-pimnic_kvstore_run(const std::vector<PimnicKvEntry> &table,
-		   const std::vector<PimnicKvRequest> &requests);
+pimnic_kvstore_run(const std::vector<PimnicKvRequest> &requests);
 
 #endif

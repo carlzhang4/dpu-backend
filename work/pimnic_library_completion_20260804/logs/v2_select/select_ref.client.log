@@ -1,0 +1,19 @@
+[INFO][12:40:53.633][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][12:40:53.633][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 1
+[INFO][12:40:53.633][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 127.0.0.1
+socket port: 7520
+[INFO][12:40:54.634][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][12:40:54.642][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][12:40:54.643][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][12:40:54.643][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][12:40:54.643][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][12:40:54.643][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][12:40:54.643][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][12:40:54.643][select_pim_ref.cpp:326][benchmark]                                             HardwareConcurrency  : 64
+BUF_SIZE: 67108864
+[INFO][12:40:54.643][select_pim_ref.cpp:336][benchmark]                                             OPS : [3]
+[DEBUG][12:40:54.760][connection_manager.cpp:80][exchange_data]                                     exchange data size:56
+[DEBUG][12:40:54.777][libr.cpp:546][connect_qp_rc]                                                  Connected success, local QPN:0x0112, remote QPN:0x000113
+Connected QPs successfully.
+Client thread started.
+Client thread finished.

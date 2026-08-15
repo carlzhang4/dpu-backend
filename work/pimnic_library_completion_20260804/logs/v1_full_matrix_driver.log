@@ -1,0 +1,7 @@
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_rx_wrap
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_rx_slow
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_echo_throughput
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_active_table
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_nic_slow
+pimnic paradigm hardware echo PASS logs=/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/logs/v1_full_two_rank
+PIMNIC V1 six-case matrix PASS quick=0

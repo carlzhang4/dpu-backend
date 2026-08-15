@@ -1,0 +1,12 @@
+waiting for matrix driver (pid 2821890) ...
+matrix done at Sat 15 Aug 2026 05:55:43 AM UTC, starting V2 select
+SELECT_RC=1
+starting V2 kvstore
+KV_RC=1
+V2_CHAIN_DONE
+starting V2 select (round 2)
+SELECT_RC=141
+starting V2 kvstore (round 2)
+Terminated
+KV_RC=143
+V2_CHAIN_DONE

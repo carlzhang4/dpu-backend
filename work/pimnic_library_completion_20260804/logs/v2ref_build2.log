@@ -1,0 +1,15 @@
+built /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/build/select_pim_ref
+In file included from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/v2ref/kvstore_pim_multidpu_ref.cpp:57:
+/home/pimnic/ziyu/dpu-backend/benchmarks/kvstore/include/kvstore.h:7:9: warning: 'MAX_KEY_SIZE' macro redefined [-Wmacro-redefined]
+#define MAX_KEY_SIZE 64
+        ^
+/home/pimnic/ziyu/dpu-backend/benchmarks/kvstore/include/KVStore_Config.h:10:9: note: previous definition is here
+#define MAX_KEY_SIZE 32
+        ^
+/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/v2ref/kvstore_pim_multidpu_ref.cpp:228:45: warning: format specifies type 'long' but the argument has type 'int' [-Wformat]
+        fprintf(fp,"%ld %lf %lf %lf %lf %lf %lf\n",REQUEST_PER_DPU, (double)d1/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d2/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d3/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d4/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)d5/2.1/1000/ITERATIONS*REQUEST_PER_DPU, (double)(d1+d2+d3+d4)/2.1/1000/ITERATIONS*REQUEST_PER_DPU);
+                    ~~~                            ^~~~~~~~~~~~~~~
+                    %d
+2 warnings generated.
+built /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/build/kvstore_pim_multidpu_ref
+pimnic v2ref build PASS

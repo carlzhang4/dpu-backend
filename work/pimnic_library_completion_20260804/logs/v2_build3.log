@@ -1,0 +1,119 @@
+In file included from /home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/util.hpp:78: warning: "likely" redefined
+   78 | #define likely(x) __builtin_expect(!!(x), 1)
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../verbose/src/verbose_control.h:22,
+                 from /home/pimnic/ziyu/dpu-backend/example/../verbose/src/static_verbose.h:9,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/src/properties/dpu_properties.h:26,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_rank_handler.h:13,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_rank.h:17,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:19:
+/home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_helpers.h:12: note: this is the location of the previous definition
+   12 | #define likely(expr) __builtin_expect((expr), 1)
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/util.hpp:79: warning: "unlikely" redefined
+   79 | #define unlikely(x) __builtin_expect(!!(x), 0)
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../verbose/src/verbose_control.h:22,
+                 from /home/pimnic/ziyu/dpu-backend/example/../verbose/src/static_verbose.h:9,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/src/properties/dpu_properties.h:26,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_rank_handler.h:13,
+                 from /home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_rank.h:17,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:19:
+/home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_helpers.h:13: note: this is the location of the previous definition
+   13 | #define unlikely(expr) __builtin_expect((expr), 0)
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/util.hpp:186: warning: "DEBUG" redefined
+  186 | #define DEBUG
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../ufi/src/ufi_rank_utils.h:12,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:22:
+/home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_log_utils.h:17: note: this is the location of the previous definition
+   17 | #define DEBUG D
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/util.hpp:187: warning: "INFO" redefined
+  187 | #define INFO
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/example/../ufi/src/ufi_rank_utils.h:12,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:22:
+/home/pimnic/ziyu/dpu-backend/example/../commons/include/dpu_log_utils.h:16: note: this is the location of the previous definition
+   16 | #define INFO I
+      | 
+In file included from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:30:15: warning: ‘size_t get_tsc()’ defined but not used [-Wunused-function]
+   30 | static size_t get_tsc() {
+      |               ^~~~~~~
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:24:15: warning: ‘double get_tsc_freq_per_ns()’ defined but not used [-Wunused-function]
+   24 | static double get_tsc_freq_per_ns() {
+      |               ^~~~~~~~~~~~~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/example/../bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/host/ops_upmem.cpp:25:
+/home/pimnic/ziyu/dpu-backend/example/../bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/dma_export.cpp:2:
+/home/pimnic/ziyu/dpu-backend/bfdma/libr.hpp:30:15: warning: ‘size_t get_tsc()’ defined but not used [-Wunused-function]
+   30 | static size_t get_tsc() {
+      |               ^~~~~~~
+/home/pimnic/ziyu/dpu-backend/bfdma/libr.hpp:24:15: warning: ‘double get_tsc_freq_per_ns()’ defined but not used [-Wunused-function]
+   24 | static double get_tsc_freq_per_ns() {
+      |               ^~~~~~~~~~~~~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/dma_export.cpp:1:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/connection_manager.hpp:18,
+                 from /home/pimnic/ziyu/dpu-backend/bfdma/connection_manager.cpp:2:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/libr.cpp:1:
+/home/pimnic/ziyu/dpu-backend/bfdma/libr.hpp:30:15: warning: ‘size_t get_tsc()’ defined but not used [-Wunused-function]
+   30 | static size_t get_tsc() {
+      |               ^~~~~~~
+/home/pimnic/ziyu/dpu-backend/bfdma/libr.hpp:24:15: warning: ‘double get_tsc_freq_per_ns()’ defined but not used [-Wunused-function]
+   24 | static double get_tsc_freq_per_ns() {
+      |               ^~~~~~~~~~~~~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/libr.hpp:16,
+                 from /home/pimnic/ziyu/dpu-backend/bfdma/libr.cpp:1:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/util.cpp:1:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/devx_device.cpp:6:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp: In function ‘mlx5dv_devx_umem* devx_umem_reg(ibv_context*, void*, size_t, uint32_t)’:
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:179:46: warning: missing initializer for member ‘mlx5dv_devx_umem_in::size’ [-Wmissing-field-initializers]
+  179 |     struct mlx5dv_devx_umem_in umem_in = { 0 };
+      |                                              ^
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:179:46: warning: missing initializer for member ‘mlx5dv_devx_umem_in::access’ [-Wmissing-field-initializers]
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:179:46: warning: missing initializer for member ‘mlx5dv_devx_umem_in::pgsz_bitmap’ [-Wmissing-field-initializers]
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:179:46: warning: missing initializer for member ‘mlx5dv_devx_umem_in::comp_mask’ [-Wmissing-field-initializers]
+/home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:179:46: warning: missing initializer for member ‘mlx5dv_devx_umem_in::dmabuf_fd’ [-Wmissing-field-initializers]
+In file included from /home/pimnic/ziyu/dpu-backend/bfdma/devx_mr.cpp:5:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp: At global scope:
+/home/pimnic/ziyu/dpu-backend/bfdma/util.hpp:114:15: warning: ‘size_t round_up(size_t, size_t)’ defined but not used [-Wunused-function]
+  114 | static size_t round_up(size_t num, size_t factor) {
+      |               ^~~~~~~~
+00000120 00000004 D gate_ack
+00000118 00000004 D gate_command
+08000800 00000008 B nic_pub
+08000808 00000008 B pe_pub
+08000840 00100000 B rx_data
+08000000 00000400 B rx_desc
+00000128 00000004 D stop
+08100840 00100000 B tx_data
+08000400 00000400 B tx_desc
+pimnic PIM1 build PASS

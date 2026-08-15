@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "apps/common/app_harness.h"
+#include "apps/kvstore/model.h"
+#include "apps/select/model.h"
 #include "pimnic/host/mailbox.h"
 #include "pimnic/host/ops_upmem.h"
 
@@ -27,19 +29,23 @@ struct Options {
 	bool reference_only = false;
 };
 
+/* Wire layouts of the V2 app contracts; they byte-match the BF3 bench
+ * and the original benchmarks (kvstore: 16-byte identity entries + 8-byte
+ * value response; select: count header + pad-to-max odd-value body). */
 struct RawKvEntry {
-	uint32_t key;
-	uint32_t value;
-	uint32_t valid;
-	uint32_t reserved;
+	char key[8];
+	char value[8];
 };
 struct KvResponse {
-	uint32_t key, value, found, request_id;
+	uint64_t value;
 };
+constexpr uint32_t kSelectRowsPerPe = 1000;
 struct SelectResponse {
 	uint32_t count;
-	uint32_t values[31];
+	uint32_t values[kSelectRowsPerPe];
+	uint32_t reserved;
 };
+static_assert(sizeof(SelectResponse) == 4008, "select response ABI size");
 
 bool u32(const char *text, uint32_t *value)
 {
@@ -95,17 +101,19 @@ uint64_t request_reference(const Options &o)
 		for (uint32_t pe = 0; pe < 64; ++pe) {
 			uint32_t request_id = message * 64u + pe;
 			if (o.app == "kvstore") {
-				uint32_t key = (request_id * 17u + 11u) & 255u;
-				KvResponse response{key, key * 3u + 7u, 1,
-						    request_id};
+				KvResponse response{
+					pimnic_kvstore_index(request_id)};
 				digest ^= hash_bytes(&response, sizeof(response));
 			} else {
-				uint32_t lower = pe * 1024u +
-						 ((message + 1u) * 13u) % 900u;
+				std::vector<uint32_t> rows(kSelectRowsPerPe);
+				for (uint32_t i = 0; i < kSelectRowsPerPe; ++i)
+					rows[i] = pe * kSelectRowsPerPe + i;
+				auto matches = pimnic_select_run(rows);
 				SelectResponse response{};
-				response.count = 31;
+				response.count =
+					static_cast<uint32_t>(matches.size());
 				for (uint32_t i = 0; i < response.count; ++i)
-					response.values[i] = lower + i;
+					response.values[i] = matches[i];
 				digest ^= hash_bytes(&response, sizeof(response));
 			}
 		}
@@ -194,19 +202,24 @@ int main(int argc, char **argv)
 	if (o.app == "kvstore") {
 		PimnicAppPreload preload;
 		preload.symbol = "key_entry_array";
-		preload.bytes_per_pe = 256u * sizeof(RawKvEntry);
+		preload.bytes_per_pe = static_cast<uint32_t>(
+			PIMNIC_KV_TOTAL_ENTRIES * sizeof(RawKvEntry));
 		preload.dims = {{0, PIMNIC_PRIM_BROADCAST, 0, 0}};
-		for (uint32_t key = 0; key < 256; ++key) {
-			RawKvEntry entry{key, key * 3u + 7u, 1, 0};
-			append_bytes(&preload.data, &entry, sizeof(entry));
+		preload.data.resize(preload.bytes_per_pe);
+		for (uint64_t i = 0; i < PIMNIC_KV_TOTAL_ENTRIES; ++i) {
+			RawKvEntry *entry = reinterpret_cast<RawKvEntry *>(
+				preload.data.data()) + i;
+			memcpy(entry->key, &i, sizeof(i));
+			memcpy(entry->value, &i, sizeof(i));
 		}
 		plan.preloads.push_back(std::move(preload));
 	} else if (o.app == "select") {
 		PimnicAppPreload preload;
 		preload.symbol = "select_rows";
-		preload.bytes_per_pe = 1024u * sizeof(uint32_t);
+		preload.bytes_per_pe = kSelectRowsPerPe * sizeof(uint32_t);
 		preload.dims = {{0, PIMNIC_PRIM_SCATTER, 0, 0}};
-		for (uint32_t value = 0; value < 64u * 1024u; ++value)
+		for (uint32_t value = 0; value < 64u * kSelectRowsPerPe;
+		     ++value)
 			append_bytes(&preload.data, &value, sizeof(value));
 		plan.preloads.push_back(std::move(preload));
 	} else if (o.app == "gnn") {
@@ -246,7 +259,7 @@ int main(int argc, char **argv)
 	if (rc == 0 && o.app == "select") {
 		rc = pimnic_pe_set_config_u32(harness.set(), "select_query_tag",
 					      values.data());
-		values.assign(64, 1024);
+		values.assign(64, kSelectRowsPerPe);
 		if (rc == 0)
 			rc = pimnic_pe_set_config_u32(harness.set(), "select_row_count",
 						      values.data());
@@ -275,7 +288,10 @@ int main(int argc, char **argv)
 		 (o.app == "select" ? PIMNIC_APP_SELECT : PIMNIC_APP_GNN));
 	app.mode = o.app == "empty" ? PIMNIC_APP_MODE_RX_ONLY :
 					 PIMNIC_APP_MODE_ECHO;
-	app.payload_bytes = o.app == "select" ? 24 : 24;
+	/* Largest message (header included) in either direction: select
+	 * answers with the 4008-byte pad-to-max result. */
+	app.payload_bytes = o.app == "select" ?
+		16u + static_cast<uint32_t>(sizeof(SelectResponse)) : 24u;
 	app.messages_per_group = o.app == "empty" ? 0 : o.messages;
 	app.batch_size = o.batch;
 	app.topology_dims = o.app == "gnn" ? (8u | (8u << 16)) : 64u;

@@ -28,9 +28,11 @@ for _ in $(seq 1 300); do
 	fi
 	sleep 0.1
 done
+app_dump=${APP_DUMP_PATH:-}
 "${bf3_exec[@]}" "cd '${bf3_repo}' && TMPDIR='${bf3_work}/build/tmp' \
 	'${bf3_work}/build/paradigm_runtime_bench' \
-	-serverIp 192.168.100.1 -port '${port}' -logEvery 0" \
+	-serverIp 192.168.100.1 -port '${port}' -logEvery 0 \
+	-appDumpPath '${app_dump}'" \
 	>"${bf3_log}" 2>&1
 wait "${host_pid}"
 trap - EXIT

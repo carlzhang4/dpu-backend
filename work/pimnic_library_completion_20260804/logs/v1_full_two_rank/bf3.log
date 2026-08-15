@@ -1,0 +1,21 @@
+cxz@192.168.100.2's password: 
+[INFO][12:23:14.029][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][12:23:14.030][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 1
+[INFO][12:23:14.030][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 192.168.100.1
+[DEBUG][12:23:15.044][connection_manager.cpp:70][exchange_vhca_data]                                exchange vhca data 2 resources
+[INFO][12:23:15.048][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_2
+[INFO][12:23:15.052][libr.cpp:152][roce_init]                                                       Use devx context 0
+
+[INFO][12:23:15.052][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][12:23:15.053][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][12:23:15.053][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][12:23:15.053][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][12:23:15.053][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][12:23:15.053][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][12:23:15.053][devx_mr.cpp:131][devx_create_alias_memory_region]                              create_alias_memory_region mkey 341504, pdn:20
+[INFO][12:23:15.053][devx_mr.cpp:315][devx_create_crossing_mr]                                      create crossing mr 0xaaaae38c3ce0: pd:0xaaaae38c3c30, addr:0x7ff080000000, len:536870912, vhca_id:0, other_mkey:2096742, mkey:341504
+[INFO][12:23:15.053][devx_mr.cpp:131][devx_create_alias_memory_region]                              create_alias_memory_region mkey 342016, pdn:20
+[INFO][12:23:15.053][devx_mr.cpp:315][devx_create_crossing_mr]                                      create crossing mr 0xaaaae38c3d80: pd:0xaaaae38c3c30, addr:0x7ff2c0000000, len:536870912, vhca_id:0, other_mkey:2096998, mkey:342016
+PIMNIC BF3 PASS status=0 injected=800000 echoed=800000 CI=57600960 DMA-R=117602127 DMA-W=60000960 collision=0 elapsed_s=864.850
+[INFO][12:37:39.977][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0xaaaae38c3ce0
+[INFO][12:37:39.977][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0xaaaae38c3d80

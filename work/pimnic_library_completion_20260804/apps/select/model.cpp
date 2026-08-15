@@ -1,12 +1,10 @@
 #include "model.h"
 
-PimnicSelectResult pimnic_select_run(const std::vector<uint32_t> &rows,
-				     uint32_t lower, uint32_t upper)
+std::vector<uint32_t> pimnic_select_run(const std::vector<uint32_t> &rows)
 {
-	PimnicSelectResult result;
+	std::vector<uint32_t> matches;
 	for (uint32_t value : rows)
-		if (value >= lower && value <= upper &&
-		    result.count < result.values.size())
-			result.values[result.count++] = value;
-	return result;
+		if ((value & 1u) != 0)
+			matches.push_back(value);
+	return matches;
 }

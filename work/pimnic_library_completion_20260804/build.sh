@@ -12,7 +12,10 @@ dpu_cc=${DPU_CC:-dpu-upmem-dpurte-clang}
 ar_tool=${AR:-ar}
 dpu_ar=${DPU_AR:-llvm-ar}
 
-common=(-I"${root}" -I"${root}/include" -I"${root}/paradigm/include")
+# The kvstore V2 contract reuses the frozen benchmark's SipHash header
+# (read-only include, the file is never modified).
+common=(-I"${root}" -I"${root}/include" -I"${root}/paradigm/include"
+	-I"${repo}/benchmarks/kvstore/include")
 cxx_flags=(-std=c++17 -O2 -g -Wall -Wextra -Werror "${common[@]}")
 
 "${cxx}" "${cxx_flags[@]}" -c "${root}/host/pimnic_host.cpp" \
@@ -131,6 +134,11 @@ done
 "${dpu_cc}" -std=c11 -O2 -g "${common[@]}" \
 	"${root}/examples/collective_pe.c" \
 	"${build}/libpimnic_dpu.a" -o "${build}/collective_pe"
+# The library objects are passed explicitly ahead of the app kernel so
+# their MRAM symbols (rings, pubs) are laid out first: the NIC can only
+# DMA the low ~4 MiB of each lane's MRAM through the exported window, so
+# a large app table (kvstore's 32 MiB key_entry_array) must come after
+# the transport structures, not before.
 for app in kvstore select gnn; do
 	link_flags=()
 	if [[ "${app}" == gnn ]]; then
@@ -138,6 +146,7 @@ for app in kvstore select gnn; do
 	fi
 	"${dpu_cc}" -std=c11 -O2 -g "${common[@]}" \
 		"${link_flags[@]}" \
+		"${build}/pe.o" "${build}/pe_paradigm.o" \
 		"${root}/apps/${app}/pe_kernel.c" \
 		"${build}/libpimnic_dpu.a" \
 		-o "${build}/${app}_pe"
@@ -145,4 +154,15 @@ done
 
 nm -S "${build}/runtime_pe" |
 	grep -E ' (rx_desc|tx_desc|rx_data|tx_data|pe_pub|nic_pub|gate_command|gate_ack|stop)$'
+# NIC-visible MRAM symbols must sit inside the DMA-reachable window
+# (logical offset < 4 MiB, i.e. address < 0x08400000).
+for binary in runtime_pe paradigm_echo_pe collective_pe kvstore_pe select_pe gnn_pe; do
+	while read -r addr _ name; do
+		if ((16#${addr} >= 16#08400000)); then
+			echo "${binary}: ${name} at 0x${addr} outside DMA window" >&2
+			exit 1
+		fi
+	done < <(nm "${build}/${binary}" |
+		grep -E ' (rx_desc|tx_desc|rx_data|tx_data|pe_pub|nic_pub)$')
+done
 echo "pimnic PIM1 build PASS"

@@ -1,0 +1,26 @@
+[INFO][05:58:29.797][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][05:58:29.797][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 0
+[INFO][05:58:29.797][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 127.0.0.1
+socket port: 7510
+
+************************************
+* Waiting for client to connect... *
+************************************
+[INFO][05:58:32.798][connection_manager.cpp:40][socket_init]                                        connected by 1
+[INFO][05:58:32.799][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][05:58:32.807][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][05:58:32.807][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][05:58:32.807][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][05:58:32.807][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][05:58:32.807][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][05:58:32.807][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][05:58:32.807][kvstore_pim_multidpu_ref.cpp:415][benchmark]                                   HardwareConcurrency  : 64
+BUF_SIZE: 34869248
+[INFO][05:58:32.807][kvstore_pim_multidpu_ref.cpp:432][benchmark]                                   OPS : [4096]
+[DEBUG][05:58:32.877][connection_manager.cpp:80][exchange_data]                                     exchange data size:56
+[DEBUG][05:58:32.894][libr.cpp:546][connect_qp_rc]                                                  Connected success, local QPN:0x0106, remote QPN:0x000107
+Connected QPs successfully.
+Server thread started.
+Server thread started.
+cannot open library /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/build/libdpufsim.so: /home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/build/libdpufsim.so: cannot open shared object file: No such file or directory
+/home/pimnic/ziyu/dpu-backend/work/pimnic_library_completion_20260804/v2ref/kvstore_pim_multidpu_ref.cpp:248(thread_KVStore_server): DPU Error (dpu allocation error)

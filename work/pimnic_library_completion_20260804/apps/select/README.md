@@ -1,12 +1,16 @@
 # SELECT adapter
 
-The deployment parameters come from
-`benchmarks/SEL/select_pim.cpp`; the scan loop is derived from
-`benchmarks/SEL/src/select_device_tasklets_parallel.c`.
+The predicate mirrors `benchmarks/SEL/support/common.h` and
+`src/select_device_tasklets_parallel.c` exactly: keep the values for
+which `!pred(x)`, i.e. the odd values.  Rows are scattered once
+(1000 rows per PE, global data 0..63999 like the original's
+`input[j] = j`), a request triggers a shard scan, and the PE answers
+with the plan's variable-length contract: a count header plus a
+pad-to-max body (4008 bytes), so all 16 lanes of a group stay uniform
+and per-DPU serial collection is gone from the data phase.
 
-Rows are preloaded once. A query arrives through RX, and the PE returns a
-fixed 128-byte `count + padded values` result through TX. This makes the
-pad-to-max contract explicit and removes per-DPU serial collection from
-the data phase. The V2 driver scatters 64 shards of 1024 rows and checks
-512 query results against the sorted CPU reference. The original
-benchmark files were not modified.
+`tests/run_v2_select.sh` compares the hit multiset dumped by BF3 against
+the hit array computed on hardware by the instrumented original
+(`v2ref/select_pim_ref.cpp` running the frozen
+`select_device_tasklets_parallel_16` binary), sorted, byte-for-byte.
+The original benchmark files were not modified.
