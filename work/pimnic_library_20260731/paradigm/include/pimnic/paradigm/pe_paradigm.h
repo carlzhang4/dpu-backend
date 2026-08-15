@@ -22,6 +22,11 @@ typedef struct pimnic_cqe {
 
 PIMNIC_STATIC_ASSERT(sizeof(pimnic_cqe_t) == 16, "pimnic_cqe ABI size");
 
+/* mram_src_off with bit 27 (0x08000000, the UPMEM MRAM window base) set is
+ * treated as an absolute MRAM address (e.g. the address of an __mram
+ * symbol); without it the value is an offset into the library rx_data
+ * ring.  Valid rx_data offsets are below the ring size and can never
+ * carry that bit.  The same rule applies to pimnic_collective_enter. */
 int pimnic_post_remote_send(struct pimnic_pe *pe, uint32_t tag,
 			    uint32_t mram_src_off, uint32_t len);
 int pimnic_post_remote_receive(struct pimnic_pe *pe, uint32_t tag,

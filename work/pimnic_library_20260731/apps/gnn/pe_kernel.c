@@ -11,7 +11,11 @@ __mram_noinit __attribute__((aligned(8)))
 int32_t gnn_vector[GNN_VECTOR_ELEMS];
 __mram_noinit __attribute__((aligned(8)))
 int32_t gnn_contribution[GNN_VECTOR_ELEMS];
+/* Even cycles enter gnn_collective_id (dim-0 REDUCE), odd cycles enter
+ * gnn_collective_id_alt (dim-1 GATHER) when it is non-zero, alternating
+ * the axis every layer. */
 __host volatile uint32_t gnn_collective_id;
+__host volatile uint32_t gnn_collective_id_alt;
 __host volatile uint32_t gnn_cycles;
 
 int main(void)
@@ -27,10 +31,13 @@ int main(void)
 		for (uint32_t i = 0; i < GNN_VECTOR_ELEMS; ++i)
 			output[i] = input[i] + (int32_t)cycle;
 		mram_write(output, gnn_contribution, sizeof(output));
+		uint32_t collective = gnn_collective_id;
+		if ((cycle & 1u) != 0 && gnn_collective_id_alt != 0)
+			collective = gnn_collective_id_alt;
 		int rc;
 		do {
 			rc = pimnic_collective_enter(
-				&pe, gnn_collective_id,
+				&pe, collective,
 				(uint32_t)(uintptr_t)&gnn_contribution[0],
 				sizeof(output));
 		} while (rc == -EAGAIN);

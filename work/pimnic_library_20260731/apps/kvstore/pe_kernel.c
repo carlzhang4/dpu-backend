@@ -58,10 +58,11 @@ int main(void)
 			  &request, sizeof(request));
 		uint32_t bucket = request.key % KV_BUCKETS;
 		mram_read(&key_entry_array[bucket], &entry, sizeof(entry));
+		uint32_t found = entry.valid && entry.key == request.key;
 		__dma_aligned struct kv_response response = {
 			.key = request.key,
-			.value = entry.value,
-			.found = entry.valid && entry.key == request.key,
+			.value = found ? entry.value : 0,
+			.found = found,
 			.request_id = request.request_id,
 		};
 		mram_write(&response, &kv_response_buffer, sizeof(response));
