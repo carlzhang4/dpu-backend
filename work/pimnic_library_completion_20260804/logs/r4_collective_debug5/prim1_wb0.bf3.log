@@ -1,0 +1,83 @@
+cxz@192.168.100.2's password: 
+collective input group=0 lane=0 pe=0 first=71
+collective input group=0 lane=1 pe=1 first=71
+collective input group=0 lane=2 pe=2 first=71
+collective input group=0 lane=3 pe=3 first=71
+collective input group=0 lane=4 pe=4 first=71
+collective input group=0 lane=5 pe=5 first=71
+collective input group=0 lane=6 pe=6 first=71
+collective input group=0 lane=7 pe=7 first=71
+collective input group=0 lane=8 pe=8 first=71
+collective input group=0 lane=9 pe=9 first=71
+collective input group=0 lane=10 pe=10 first=71
+collective input group=0 lane=11 pe=11 first=71
+collective input group=0 lane=12 pe=12 first=71
+collective input group=0 lane=13 pe=13 first=71
+collective input group=0 lane=14 pe=14 first=71
+collective input group=0 lane=15 pe=15 first=71
+collective input group=1 lane=0 pe=16 first=71
+collective input group=1 lane=1 pe=17 first=71
+collective input group=1 lane=2 pe=18 first=71
+collective input group=1 lane=3 pe=19 first=71
+collective input group=1 lane=4 pe=20 first=71
+collective input group=1 lane=5 pe=21 first=71
+collective input group=1 lane=6 pe=22 first=71
+collective input group=1 lane=7 pe=23 first=71
+collective input group=1 lane=8 pe=24 first=71
+collective input group=1 lane=9 pe=25 first=71
+collective input group=1 lane=10 pe=26 first=71
+collective input group=1 lane=11 pe=27 first=71
+collective input group=1 lane=12 pe=28 first=71
+collective input group=1 lane=13 pe=29 first=71
+collective input group=1 lane=14 pe=30 first=71
+collective input group=1 lane=15 pe=31 first=71
+collective input group=2 lane=0 pe=32 first=71
+collective input group=2 lane=1 pe=33 first=71
+collective input group=2 lane=2 pe=34 first=71
+collective input group=2 lane=3 pe=35 first=71
+collective input group=2 lane=4 pe=36 first=71
+collective input group=2 lane=5 pe=37 first=71
+collective input group=2 lane=6 pe=38 first=71
+collective input group=2 lane=7 pe=39 first=71
+collective input group=2 lane=8 pe=40 first=71
+collective input group=2 lane=9 pe=41 first=71
+collective input group=2 lane=10 pe=42 first=71
+collective input group=2 lane=11 pe=43 first=71
+collective input group=2 lane=12 pe=44 first=71
+collective input group=2 lane=13 pe=45 first=71
+collective input group=2 lane=14 pe=46 first=71
+collective input group=2 lane=15 pe=47 first=71
+collective input group=3 lane=0 pe=48 first=71
+collective input group=3 lane=1 pe=49 first=71
+collective input group=3 lane=2 pe=50 first=71
+collective input group=3 lane=3 pe=51 first=71
+collective input group=3 lane=4 pe=52 first=71
+collective input group=3 lane=5 pe=53 first=71
+collective input group=3 lane=6 pe=54 first=71
+collective input group=3 lane=7 pe=55 first=71
+collective input group=3 lane=8 pe=56 first=71
+collective input group=3 lane=9 pe=57 first=71
+collective input group=3 lane=10 pe=58 first=71
+collective input group=3 lane=11 pe=59 first=71
+collective input group=3 lane=12 pe=60 first=71
+collective input group=3 lane=13 pe=61 first=71
+collective input group=3 lane=14 pe=62 first=71
+collective input group=3 lane=15 pe=63 first=71
+PIMNIC scheduler failed rc=-5 status=5
+[INFO][19:54:19.071][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][19:54:19.071][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 1
+[INFO][19:54:19.071][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 192.168.100.1
+[DEBUG][19:54:20.076][connection_manager.cpp:70][exchange_vhca_data]                                exchange vhca data 1 resources
+[INFO][19:54:20.084][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_2
+[INFO][19:54:20.088][libr.cpp:152][roce_init]                                                       Use devx context 0
+
+[INFO][19:54:20.088][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][19:54:20.089][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][19:54:20.089][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][19:54:20.089][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][19:54:20.089][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][19:54:20.089][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][19:54:20.089][devx_mr.cpp:131][devx_create_alias_memory_region]                              create_alias_memory_region mkey 341504, pdn:20
+[INFO][19:54:20.089][devx_mr.cpp:315][devx_create_crossing_mr]                                      create crossing mr 0xaaaada32a8f0: pd:0xaaaada32a840, addr:0x7f3a00000000, len:536870912, vhca_id:0, other_mkey:2096742, mkey:341504
+PIMNIC BF3 FAIL status=5 injected=0 echoed=0 CI=768 DMA-R=1552 DMA-W=780 collision=0 elapsed_s=0.004
+[INFO][19:54:20.152][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0xaaaada32a8f0

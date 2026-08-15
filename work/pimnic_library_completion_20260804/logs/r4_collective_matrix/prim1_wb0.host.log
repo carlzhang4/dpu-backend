@@ -1,0 +1,19 @@
+[INFO][13:11:48.615][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][13:11:48.620][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][13:11:48.620][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][13:11:48.620][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][13:11:48.620][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][13:11:48.620][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][13:11:48.620][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][13:11:48.711][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7f9ec0000000, len:536870912, flag:7
+[INFO][13:11:48.711][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x15ff1490: pd:0x15ff13c0, addr:0x7f9ec0000000, len:536870912, umem_id:1, mkey:2096742
+[INFO][13:11:48.711][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 6980
+[INFO][13:11:59.706][connection_manager.cpp:34][socket_init]                                        connected by 1
+[DEBUG][13:11:59.706][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+PIMNIC collective host FAIL prim=1 writeback=0 dim=0 rounds=3 failed_pes=0 ci=1844256 elapsed_s=10.012
+[INFO][13:12:09.805][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x15ff1490

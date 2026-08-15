@@ -1,0 +1,18 @@
+cxz@192.168.100.2's password: 
+[INFO][21:07:21.787][libr.cpp:103][init_net_param]                                                  NetParam.numNodes    : 2
+[INFO][21:07:21.787][libr.cpp:104][init_net_param]                                                  NetParam.nodeId      : 1
+[INFO][21:07:21.787][libr.cpp:105][init_net_param]                                                  NetParam.serverIp    : 192.168.100.1
+[DEBUG][21:07:22.804][connection_manager.cpp:70][exchange_vhca_data]                                exchange vhca data 1 resources
+[INFO][21:07:22.808][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_2
+[INFO][21:07:22.812][libr.cpp:152][roce_init]                                                       Use devx context 0
+
+[INFO][21:07:22.812][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][21:07:22.813][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][21:07:22.813][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][21:07:22.813][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][21:07:22.813][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][21:07:22.813][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][21:07:22.813][devx_mr.cpp:131][devx_create_alias_memory_region]                              create_alias_memory_region mkey 341504, pdn:20
+[INFO][21:07:22.813][devx_mr.cpp:315][devx_create_crossing_mr]                                      create crossing mr 0xaaaaebe039f0: pd:0xaaaaebe03940, addr:0x7f5240000000, len:536870912, vhca_id:0, other_mkey:2096742, mkey:341504
+PIMNIC BF3 PASS status=0 injected=512 echoed=0 CI=627520 DMA-R=1255552 DMA-W=628544 collision=0 elapsed_s=3.424
+[INFO][21:07:26.294][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0xaaaaebe039f0

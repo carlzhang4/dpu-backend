@@ -1,0 +1,19 @@
+[INFO][13:49:46.675][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][13:49:46.682][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][13:49:46.682][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][13:49:46.682][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][13:49:46.682][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][13:49:46.682][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][13:49:46.682][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][13:49:46.780][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7fcb80000000, len:536870912, flag:7
+[INFO][13:49:46.780][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x3a8d9200: pd:0x3a8d9160, addr:0x7fcb80000000, len:536870912, umem_id:1, mkey:2096742
+[INFO][13:49:46.780][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 7220
+[INFO][13:49:49.277][connection_manager.cpp:34][socket_init]                                        connected by 1
+[DEBUG][13:49:49.277][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+[INFO][13:49:49.379][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x3a8d9200
+PIMNIC APP PASS app=gnn rc=0 status=0 v2_equal=1 digest=944f3e1be7275283 reference=944f3e1be7275283 failed_pes=0 injected=0 completed=0 ci=2784 elapsed_ns=14555521 host_data_cpu_pct=3.219 reference_ns=19402

@@ -1,0 +1,23 @@
+[INFO][13:20:33.623][libr.cpp:22][ctx_find_dev]                                                     IB_DEV_NAME          : mlx5_0
+[INFO][13:20:33.628][libr.cpp:160][roce_init]                                                       Transport type       : IBV_TRANSPORT_IB
+[INFO][13:20:33.628][libr.cpp:163][roce_init]                                                       Line Layer           : Ethernet
+[INFO][13:20:33.628][libr.cpp:167][roce_init]                                                       Max Outreads         : 16
+[INFO][13:20:33.628][libr.cpp:168][roce_init]                                                       Max Pkeys            : 128
+[INFO][13:20:33.628][libr.cpp:169][roce_init]                                                       Atomic Capacity      : 1
+[INFO][13:20:33.628][libr.cpp:174][roce_init]                                                       CUR MTU              : 1024
+[INFO][13:20:33.723][devx_mr.cpp:94][devx_create_mkey]                                              create mkey 2096742, pdn:22, umem_id:1, addr:0x7fb740000000, len:536870912, flag:7
+[INFO][13:20:33.723][devx_mr.cpp:226][devx_reg_mr]                                                  register mr 0x29c37490: pd:0x29c373c0, addr:0x7fb740000000, len:536870912, umem_id:1, mkey:2096742
+[INFO][13:20:33.723][devx_mr.cpp:47][devx_allow_other_vhca_access]                                  allow_other_vhca_access lkey 2096742
+
+************************************
+* Waiting for client to connect... *
+************************************
+IP address is: 127.0.0.1, binding to port: 7014
+[INFO][13:20:35.213][connection_manager.cpp:34][socket_init]                                        connected by 1
+PE0 mapped=0 complete=1 error=0 offset=4294967295 actual=0 expected=0 src=0x0 input=16 read_rc=0
+PE1 mapped=16 complete=0 error=0 offset=4294967295 actual=0 expected=0 src=0x0 input=211 read_rc=0
+PE2 mapped=32 complete=0 error=0 offset=4294967295 actual=0 expected=0 src=0x0 input=163 read_rc=0
+PE3 mapped=48 complete=0 error=0 offset=4294967295 actual=0 expected=0 src=0x0 input=115 read_rc=0
+[DEBUG][13:20:35.213][connection_manager.cpp:71][exchange_vhca_data]                                exchange vhca data 1 resources
+PIMNIC collective host FAIL prim=3 writeback=0 dim=0 rounds=3 failed_pes=64 ci=1807712 elapsed_s=10.007
+[INFO][13:20:45.309][devx_mr.cpp:278][devx_dereg_mr]                                                deregister mr 0x29c37490

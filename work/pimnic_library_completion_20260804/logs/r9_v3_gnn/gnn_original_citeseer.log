@@ -1,0 +1,158 @@
+/home/pimnic/ziyu/dpu-backend/build/../benchmarks/GNN/inputs/citeseer.mtx, done!
+[INFO] Allocated 64 DPU(s)
+[INFO] Allocated 16 TASKLET(s) per DPU
+nr_of_partitions = 8
+[INFO] citeseer.mtx: 3327 Rows, 3327 Cols, 4676 NNZs
+[INFO] citeseer.mtx: Matrix Loaded and Sorted
+DPU 0: cols_per_dpu=512, rows_per_dpu=512, nnz=103
+DPU 1: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 2: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 3: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 4: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 5: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 6: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 7: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 8: cols_per_dpu=512, rows_per_dpu=512, nnz=218
+DPU 9: cols_per_dpu=512, rows_per_dpu=512, nnz=139
+DPU 10: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 11: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 12: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 13: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 14: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 15: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 16: cols_per_dpu=512, rows_per_dpu=512, nnz=222
+DPU 17: cols_per_dpu=512, rows_per_dpu=512, nnz=216
+DPU 18: cols_per_dpu=512, rows_per_dpu=512, nnz=130
+DPU 19: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 20: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 21: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 22: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 23: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 24: cols_per_dpu=512, rows_per_dpu=512, nnz=238
+DPU 25: cols_per_dpu=512, rows_per_dpu=512, nnz=209
+DPU 26: cols_per_dpu=512, rows_per_dpu=512, nnz=198
+DPU 27: cols_per_dpu=512, rows_per_dpu=512, nnz=111
+DPU 28: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 29: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 30: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 31: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 32: cols_per_dpu=512, rows_per_dpu=512, nnz=228
+DPU 33: cols_per_dpu=512, rows_per_dpu=512, nnz=258
+DPU 34: cols_per_dpu=512, rows_per_dpu=512, nnz=225
+DPU 35: cols_per_dpu=512, rows_per_dpu=512, nnz=266
+DPU 36: cols_per_dpu=512, rows_per_dpu=512, nnz=184
+DPU 37: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 38: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 39: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 40: cols_per_dpu=512, rows_per_dpu=512, nnz=232
+DPU 41: cols_per_dpu=512, rows_per_dpu=512, nnz=261
+DPU 42: cols_per_dpu=512, rows_per_dpu=512, nnz=250
+DPU 43: cols_per_dpu=512, rows_per_dpu=512, nnz=193
+DPU 44: cols_per_dpu=512, rows_per_dpu=512, nnz=171
+DPU 45: cols_per_dpu=512, rows_per_dpu=512, nnz=182
+DPU 46: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 47: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 48: cols_per_dpu=512, rows_per_dpu=512, nnz=99
+DPU 49: cols_per_dpu=512, rows_per_dpu=512, nnz=63
+DPU 50: cols_per_dpu=512, rows_per_dpu=512, nnz=66
+DPU 51: cols_per_dpu=512, rows_per_dpu=512, nnz=77
+DPU 52: cols_per_dpu=512, rows_per_dpu=512, nnz=60
+DPU 53: cols_per_dpu=512, rows_per_dpu=512, nnz=29
+DPU 54: cols_per_dpu=512, rows_per_dpu=512, nnz=48
+DPU 55: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 56: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 57: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 58: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 59: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 60: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 61: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 62: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+DPU 63: cols_per_dpu=512, rows_per_dpu=512, nnz=0
+Adding zero-padding to COO matrix for load balancing...
+Calculating threshold rows for each DPU...
+DPU 0: DPU 1: DPU 2: DPU 3: DPU 4: DPU 5: DPU 6: DPU 7: DPU 8: DPU 9: DPU 10: DPU 11: DPU 12: DPU 13: DPU 14: DPU 15: DPU 16: DPU 17: DPU 18: DPU 19: DPU 20: DPU 21: DPU 22: DPU 23: DPU 24: DPU 25: DPU 26: DPU 27: DPU 28: DPU 29: DPU 30: DPU 31: DPU 32: DPU 33: DPU 34: DPU 35: DPU 36: DPU 37: DPU 38: DPU 39: DPU 40: DPU 41: DPU 42: DPU 43: DPU 44: DPU 45: DPU 46: DPU 47: DPU 48: DPU 49: DPU 50: DPU 51: DPU 52: DPU 53: DPU 54: DPU 55: DPU 56: DPU 57: DPU 58: DPU 59: DPU 60: DPU 61: DPU 62: DPU 63: Threshold rows for each DPU:
+DPU 0: threshold row = 307, dummy_nnz_1 = 83, dummy_nnz_2 = 82
+DPU 1: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 2: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 3: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 4: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 5: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 6: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 7: threshold row = 0, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 8: threshold row = 779, dummy_nnz_1 = 25, dummy_nnz_2 = 25
+DPU 9: threshold row = 849, dummy_nnz_1 = 65, dummy_nnz_2 = 64
+DPU 10: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 11: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 12: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 13: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 14: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 15: threshold row = 512, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 16: threshold row = 1289, dummy_nnz_1 = 23, dummy_nnz_2 = 23
+DPU 17: threshold row = 1296, dummy_nnz_1 = 25, dummy_nnz_2 = 27
+DPU 18: threshold row = 1370, dummy_nnz_1 = 69, dummy_nnz_2 = 69
+DPU 19: threshold row = 1024, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 20: threshold row = 1024, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 21: threshold row = 1024, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 22: threshold row = 1024, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 23: threshold row = 1024, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 24: threshold row = 1759, dummy_nnz_1 = 15, dummy_nnz_2 = 15
+DPU 25: threshold row = 1786, dummy_nnz_1 = 30, dummy_nnz_2 = 29
+DPU 26: threshold row = 1770, dummy_nnz_1 = 35, dummy_nnz_2 = 35
+DPU 27: threshold row = 1882, dummy_nnz_1 = 79, dummy_nnz_2 = 78
+DPU 28: threshold row = 1536, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 29: threshold row = 1536, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 30: threshold row = 1536, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 31: threshold row = 1536, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 32: threshold row = 2312, dummy_nnz_1 = 20, dummy_nnz_2 = 20
+DPU 33: threshold row = 2325, dummy_nnz_1 = 5, dummy_nnz_2 = 5
+DPU 34: threshold row = 2339, dummy_nnz_1 = 21, dummy_nnz_2 = 22
+DPU 35: threshold row = 2348, dummy_nnz_1 = 1, dummy_nnz_2 = 1
+DPU 36: threshold row = 2418, dummy_nnz_1 = 42, dummy_nnz_2 = 42
+DPU 37: threshold row = 2048, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 38: threshold row = 2048, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 39: threshold row = 2048, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 40: threshold row = 2781, dummy_nnz_1 = 20, dummy_nnz_2 = 16
+DPU 41: threshold row = 2782, dummy_nnz_1 = 1, dummy_nnz_2 = 6
+DPU 42: threshold row = 2794, dummy_nnz_1 = 9, dummy_nnz_2 = 9
+DPU 43: threshold row = 2781, dummy_nnz_1 = 38, dummy_nnz_2 = 37
+DPU 44: threshold row = 2789, dummy_nnz_1 = 49, dummy_nnz_2 = 48
+DPU 45: threshold row = 2843, dummy_nnz_1 = 43, dummy_nnz_2 = 43
+DPU 46: threshold row = 2560, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 47: threshold row = 2560, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 48: threshold row = 3204, dummy_nnz_1 = 84, dummy_nnz_2 = 85
+DPU 49: threshold row = 3191, dummy_nnz_1 = 103, dummy_nnz_2 = 102
+DPU 50: threshold row = 3203, dummy_nnz_1 = 101, dummy_nnz_2 = 101
+DPU 51: threshold row = 3220, dummy_nnz_1 = 95, dummy_nnz_2 = 96
+DPU 52: threshold row = 3206, dummy_nnz_1 = 104, dummy_nnz_2 = 104
+DPU 53: threshold row = 3232, dummy_nnz_1 = 120, dummy_nnz_2 = 119
+DPU 54: threshold row = 3179, dummy_nnz_1 = 110, dummy_nnz_2 = 110
+DPU 55: threshold row = 3072, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 56: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 57: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 58: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 59: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 60: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 61: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 62: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+DPU 63: threshold row = 3584, dummy_nnz_1 = 134, dummy_nnz_2 = 134
+ feature->ncols: 16
+ max_rows_per_dpu_A: 512
+ max_rows_per_dpu_feat: 512
+ max_rows_per_dpu_mid: 512
+ max_cols_per_dpu_w: 2
+ max_nnz_per_dpu: 268
+ DPU CAPACITY: 66060288 bytes
+ Sparse Matrix NNZs: 6432 bytes
+ Weight Matrix: 128 bytes
+ Input Feature Matrix: 32768 bytes
+ Output Feature Matrix: 32768 bytes
+ Required MRAM: 72096 bytes
+Allocated new_feat_cycle matrix with 8 partitions
+max_rows_per_dpu_mid: 512, feature->ncols: 16
+max_cols_per_dpu_w: 2
+max_rows_per_dpu_mid: 512
+Second GNN layer results are CORRECT!
+Cycle 3 : nr_of_partitions : 8
+[ OK ] Outputs are equal
+
+total exec. time = 119.441002
