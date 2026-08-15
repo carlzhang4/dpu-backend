@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-bf3_root=${BF3_WORK_ROOT:-/home/pimnic/ziyu/nfs/libr/work/pimnic_library_20260731}
+bf3_root=${BF3_WORK_ROOT:-/home/pimnic/ziyu/nfs/libr/work/pimnic_library_completion_20260804}
 src="${root}/include/pimnic/abi"
 dst="${bf3_root}/include/pimnic/abi"
 

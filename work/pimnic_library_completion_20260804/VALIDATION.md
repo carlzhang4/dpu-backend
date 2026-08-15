@@ -3,6 +3,11 @@
 Executed on 2026-08-04 using PIM1 and BF3. The authoritative detailed record is
 `docs/pimnic-library-completion-signoff.md`.
 
+## Baseline commits (recorded 2026-08-15)
+
+- PIM1 `dpu-backend`, branch `baseline_test`: prototype fixes `9603e6c`, completion work tree `929fc33` (parent `caa30ed`).
+- BF3 `libr`, branch `main`: collective fixes `a4801b4`, completion work tree `771e3cf` (parent `965bdeb`).
+
 ## Final passing gates
 
 | Gate | Result |
